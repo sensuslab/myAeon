@@ -1,0 +1,13 @@
+# Nixpacks configuration for Next.js on Railway
+# https://docs.railway.app/reference/config-as-code
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --legacy-peer-deps || npm install --legacy-peer-deps"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
