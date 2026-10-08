@@ -4,11 +4,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import type { PlanetVisual, ZodiacSign } from "@/lib/zodiac";
 import type { PlanetInsight, ReadingPayload } from "./types";
+import ReadingAudioPlayer from "./ReadingAudioPlayer";
+import type { ReadingAudioState } from "./useReadingAudio";
 
 export type { ReadingPayload };
 
 type Props = {
   reading: ReadingPayload | null;
+  audio: ReadingAudioState;
   sign: ZodiacSign | null;
   loading: boolean;
   error: string | null;
@@ -36,6 +39,7 @@ const DOMAINS: Record<string, string> = {
  */
 export default function ReadingPanel({
   reading,
+  audio,
   sign,
   loading,
   error,
@@ -139,6 +143,7 @@ export default function ReadingPanel({
         {/* Loaded reading */}
         {reading && !loading && (
           <div className="space-y-4">
+            <ReadingAudioPlayer audio={audio} />
             {/* Greeting + summary */}
             <div className="rounded-xl p-4 bg-astral-cyan/5 border border-astral-cyan/15">
               <p className="text-astral-cyan text-xs italic">{reading.greeting}</p>

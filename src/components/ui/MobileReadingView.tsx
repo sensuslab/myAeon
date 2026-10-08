@@ -4,10 +4,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import type { PlanetVisual, ZodiacSign } from "@/lib/zodiac";
 import type { PlanetInsight, ReadingPayload } from "./types";
+import ReadingAudioPlayer from "./ReadingAudioPlayer";
+import type { ReadingAudioState } from "./useReadingAudio";
 
 type Props = {
   open: boolean;
   reading: ReadingPayload | null;
+  audio: ReadingAudioState;
   sign: ZodiacSign | null;
   loading: boolean;
   error: string | null;
@@ -34,6 +37,7 @@ const DOMAINS: Record<string, string> = {
 export default function MobileReadingView({
   open,
   reading,
+  audio,
   sign,
   loading,
   error,
@@ -138,6 +142,7 @@ export default function MobileReadingView({
 
             {reading && !loading && (
               <>
+                <ReadingAudioPlayer audio={audio} />
                 <section className="rounded-3xl border border-astral-cyan/15 bg-astral-cyan/5 p-5">
                   <p className="text-sm italic text-astral-cyan">{reading.greeting}</p>
                   <p className="mt-3 text-base leading-7 text-white/90">{reading.summary}</p>

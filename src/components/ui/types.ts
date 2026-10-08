@@ -1,4 +1,5 @@
 import type { PlanetId } from "@/lib/zodiac";
+import type { AudioAuthorization } from "@/lib/readingAudio";
 
 export type ThemeMode = "dark" | "light";
 
@@ -23,6 +24,8 @@ export type ReadingPayload = {
   }>;
   planetInsights?: PlanetInsight[];
   affirmation: string;
+  audioScript?: string;
+  audioAuthorization?: AudioAuthorization;
   meta?: {
     provider?: string;
     model?: string;

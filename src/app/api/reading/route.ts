@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { AUDIO_SCRIPT_PROMPT, resolveAudioScript } from "@/lib/readingAudio";
+import { authorizeAudio } from "@/lib/deepgramAudio";
 import {
   PLANETS,
   ZODIAC_SIGNS,
@@ -28,7 +30,7 @@ const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-pro";
 const DEFAULT_DEEPSEEK_TIMEOUT_MS = 120_000;
 const OPENAI_CHAT_PATH = "/chat/completions";
 const PLANET_IDS = PLANETS.map((planet) => planet.id);
-const COMPLETION_TOKEN_LIMIT = 8192;
+const COMPLETION_TOKEN_LIMIT = 12288;
 const SECTION_TITLES = ["Love & Connection", "Purpose & Work", "Body & Energy", "Inner World"];
 const TIMEFRAMES = ["Today", "3 Days", "Week", "Month"];
 
@@ -66,6 +68,8 @@ STYLE:
 - Future-dated readings are symbolic weather: preparation and reflection, never prediction.
 - The affirmation should distill the reading's dominant theme into one carryable sentence, not a generic positivity platitude.
 
+${AUDIO_SCRIPT_PROMPT}
+
 OUTPUT FORMAT:
 Respond with valid JSON only — no markdown fences, no preamble. Use this exact shape:
 {
@@ -99,7 +103,8 @@ Respond with valid JSON only — no markdown fences, no preamble. Use this exact
     { "id": "uranus", "title": "Uranus in [sign]", "body": "2–3 sentences", "reflection": "one specific question or practice" },
     { "id": "neptune", "title": "Neptune in [sign]", "body": "2–3 sentences", "reflection": "one specific question or practice" }
   ],
-  "affirmation": "one sentence distilled from the reading's dominant theme"
+  "affirmation": "one sentence distilled from the reading's dominant theme",
+  "audioScript": "complete standalone spoken adaptation following the AUDIO-FIRST NARRATION rules"
 }
 
 Return exactly one planetInsights object for each id: mercury, venus, earth, mars, jupiter, saturn, uranus, neptune. Anchor every planet insight in its current sign, degree, dignity, and aspect to the user's sun sign as provided. Keep the JSON compact but substantive.`;
@@ -595,7 +600,9 @@ export async function POST(req: Request) {
     },
   };
 
-  return NextResponse.json(response);
+  const audioScript = resolveAudioScript(parsedJson.audioScript, response);
+  return NextResponse.json({ ...response, audioScript, audioAuthorization: authorizeAudio(audioScript) },
+    { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function GET() {

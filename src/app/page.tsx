@@ -14,6 +14,7 @@ import MobileReadingDrawer from "@/components/ui/MobileReadingDrawer";
 import MobileReadingView from "@/components/ui/MobileReadingView";
 import type { ReadingPayload, ThemeMode } from "@/components/ui/types";
 import { downloadReadingPdf } from "@/components/ui/downloadReadingPdf";
+import { useReadingAudio } from "@/components/ui/useReadingAudio";
 import {
   computeSnapshot,
   longitudeToSign,
@@ -53,6 +54,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [sign, setSign] = useState<ZodiacSign | null>(null);
   const [reading, setReading] = useState<ReadingPayload | null>(null);
+  const audio = useReadingAudio(reading);
   const [hoveredPlanet, setHoveredPlanet] = useState<PlanetVisual | null>(null);
   const [selectedPlanet, setSelectedPlanet] = useState<PlanetVisual | null>(null);
   const [flat, setFlat] = useState(false);
@@ -223,6 +225,7 @@ export default function Home() {
       <div className="hidden md:block">
         <ReadingPanel
           reading={reading}
+          audio={audio}
           sign={sign}
           loading={loading}
           error={error}
@@ -267,6 +270,7 @@ export default function Home() {
       <MobileReadingView
         open={mobileReadingOpen}
         reading={reading}
+        audio={audio}
         sign={sign}
         loading={loading}
         error={error}
