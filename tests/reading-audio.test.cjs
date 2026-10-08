@@ -236,6 +236,58 @@ function playerHarness(reading, options = {}) {
   };
 }
 
+test("download generation does not autoplay or start a streaming connection", async () => {
+  const reading = { audioScript: scriptFor("Download-only narration"), audioAuthorization: { expiresAt: 1, signature: "test" } };
+  global.fetch = async () => new Response(new Uint8Array([1, 2]), { headers: { "Content-Type": "audio/wav" } });
+  const harness = playerHarness(reading);
+  try {
+    await act(async () => { await harness.state.generateDownload(); });
+    assert.equal(harness.state.ready, true);
+    assert.equal(harness.instances[0].paused, true);
+    assert.equal(harness.state.stream.ready, false);
+  } finally { harness.dispose(); }
+});
+
+test("streaming starts on tap, plays incoming PCM, pauses and disposes on a new reading", async () => {
+  const saved = { context: global.AudioContext, socket: global.WebSocket, window: global.window };
+  const sockets = []; const contexts = [];
+  class Context {
+    constructor() { this.currentTime = 0; this.state = "suspended"; this.destination = {}; contexts.push(this); }
+    async resume() { this.state = "running"; }
+    async suspend() { this.state = "suspended"; }
+    async close() { this.state = "closed"; }
+    createBuffer(_, length, sampleRate) { const data = new Float32Array(length); return { duration: length / sampleRate, getChannelData: () => data }; }
+    createBufferSource() { return { playbackRate: { value: 1 }, connect() {}, disconnect() {}, start() {}, stop() {} }; }
+  }
+  class Socket {
+    constructor() { sockets.push(this); }
+    send(data) { this.request = JSON.parse(data); }
+    close() { this.closed = true; }
+  }
+  global.AudioContext = Context; global.WebSocket = Socket;
+  global.window = { location: { href: "https://myaeon.test/", protocol: "https:" } };
+  const reading = { audioScript: scriptFor("Streaming narration"), audioAuthorization: { expiresAt: 1, signature: "test" } };
+  const harness = playerHarness(reading);
+  try {
+    assert.equal(sockets.length, 0);
+    await act(async () => { await harness.state.stream.togglePlayback(); });
+    sockets[0].onopen(); assert.equal(sockets[0].request.script, reading.audioScript);
+    act(() => sockets[0].onmessage({ data: new ArrayBuffer(48000) }));
+    assert.equal(harness.state.stream.ready, true); assert.equal(harness.state.stream.playing, true);
+    assert.equal(harness.state.stream.duration, 1);
+    await act(async () => { await harness.state.stream.togglePlayback(); });
+    assert.equal(contexts[0].state, "suspended"); assert.equal(harness.state.stream.playing, false);
+    act(() => harness.state.stream.seek(0.5)); assert.equal(harness.state.stream.currentTime, 0.5);
+    act(() => harness.state.stream.changeRate(1.5)); assert.equal(harness.state.stream.rate, 1.5);
+    harness.update({ ...reading });
+    assert.equal(sockets[0].closed, true); assert.equal(contexts[0].state, "closed");
+    act(() => sockets[0].onmessage({ data: new ArrayBuffer(48000) }));
+    assert.equal(harness.state.stream.ready, false);
+  } finally {
+    harness.dispose(); global.AudioContext = saved.context; global.WebSocket = saved.socket; global.window = saved.window;
+  }
+});
+
 test("player generates only on click; pause, seek, speed and replay reuse one recording", async () => {
   setup("player"); let calls = 0;
   const reading = { audioScript: scriptFor("Player narration"), audioAuthorization: { expiresAt: 1, signature: "test" } };

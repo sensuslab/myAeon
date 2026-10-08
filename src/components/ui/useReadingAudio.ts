@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReadingPayload } from "./types";
+import { useReadingStream } from "./useReadingStream";
 
 /** One player and one browser audio cache shared by desktop and mobile controls. */
 export function useReadingAudio(reading: ReadingPayload | null) {
+  const stream = useReadingStream(reading);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const urlRef = useRef<string | null>(null);
@@ -69,11 +71,12 @@ export function useReadingAudio(reading: ReadingPayload | null) {
     }
   }, []);
 
-  const togglePlayback = useCallback(async () => {
+  const togglePlayback = useCallback(async (autoplay = true) => {
     const audio = audioRef.current;
     if (!audio || requestRef.current) return;
     setError(null);
     if (urlRef.current) {
+      if (!autoplay) return;
       if (!audio.paused) audio.pause(); else await play();
       return;
     }
@@ -100,7 +103,7 @@ export function useReadingAudio(reading: ReadingPayload | null) {
       urlRef.current = URL.createObjectURL(blob);
       audio.src = urlRef.current;
       setReady(true);
-      await play();
+      if (autoplay) await play();
     } catch (err) {
       if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Could not generate reading audio.");
     } finally {
@@ -118,7 +121,7 @@ export function useReadingAudio(reading: ReadingPayload | null) {
     setRate(value);
   }, []);
 
-  return { available: Boolean(reading?.audioScript && reading.audioAuthorization), generating, ready,
+  return { stream, generateDownload: () => togglePlayback(false), available: Boolean(reading?.audioScript && reading.audioAuthorization), generating, ready,
     playing, currentTime, duration, rate, error, notice, togglePlayback, seek, changeRate,
     downloadUrl: ready ? urlRef.current : null };
 }

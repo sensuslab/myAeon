@@ -3,22 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node server.mjs",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production node server.mjs",
     "lint": "next lint",
-    "test:audio": "node --test tests/reading-audio.test.cjs"
+    "test:audio": "node --test tests/reading-audio.test.cjs tests/reading-stream.test.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
     "astronomy-engine": "^2.1.19",
     "framer-motion": "^11.11.0",
+    "lucide-react": "^1.53.0",
     "next": "14.2.35",
     "pdfkit": "^0.19.1",
     "react": "^18",
     "react-dom": "^18",
     "three": "^0.169.0",
+    "ws": "^8.22.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

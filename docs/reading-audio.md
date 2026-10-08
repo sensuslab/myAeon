@@ -46,20 +46,31 @@ the key was configured need to be cast again to receive audio authorization.
 1. Cast a reading: one AI request generates written content and the separate
    narration. There are zero Deepgram requests at this stage, or on hover,
    changing tabs, opening a reading or resizing the screen.
-2. Press **Listen to reading**: the browser sends only the narration and its
-   authorization to `/api/reading/audio`.
+2. Press **Listen**: the browser opens `/api/reading/audio/stream` over WebSocket
+   and sends the narration and authorization. The custom Node server verifies
+   the signed reading and connects to Deepgram's `/v1/speak` WebSocket with the
+   server-only API key. No token-grant permission is needed. A short opening
+   chunk starts playback before the rest of the narration is synthesized.
 3. The server verifies the signature and its 24-hour expiry before synthesis.
    The browser cannot select a paid model, override the endpoint or synthesize
    arbitrary text with the server's key. This is a reading capability, not a user
    identity or billing system; existing public reading access is unchanged.
-4. Aura input is limited to 2000 characters per request. The server splits the
-   script into chunks of at most 1900 characters, preferring sentence then word
-   boundaries. Sequential requests generate raw 24 kHz mono, 16-bit PCM. One
-   WAV header wraps the complete recording, giving browsers correct duration
-   and seek behavior without concatenating multiple WAV headers or MP3 files.
-5. The recording plays on desktop or mobile. An iOS autoplay restriction after
-   asynchronous generation prompts the user to press Play again. Pause, seek,
-   speed, replay and download use the same recording.
+4. Streaming sends an opening of at most 350 characters, then chunks of at most
+   1800 characters. Each chunk is flushed before the next is sent. A rolling
+   window stays below 2400 characters and 20 flushes per minute. The browser
+   plays arriving 24 kHz mono, 16-bit PCM through Web Audio. Pause, speed and
+   seeking within received audio work in both desktop and mobile views.
+5. Press **Generate Download** for a complete WAV through `/api/reading/audio`.
+   Its two concurrent REST workers, 1900-character chunks and five-minute
+   timeout remain in place. It does not autoplay or interrupt streaming.
+   A Download link appears when the complete recording is ready.
+
+Run the app with `npm start` (or `npm run dev`), which launches `server.mjs`.
+`next start` alone does not mount the WebSocket endpoint. Railway uses the
+existing `npm start` command. The proxy enforces same-origin upgrades, four
+active sessions per process, signed scripts, bounded payload/output sizes,
+connection/progress deadlines and provider cancellation on client disconnect.
+Streaming sessions have a twenty-minute maximum lifetime.
 
 The current reading's audio stays in browser memory until a new reading is cast
 or the page closes. Desktop and mobile share one player, so changing viewport or
@@ -67,14 +78,17 @@ closing/reopening the mobile reading does not create another speech request.
 Starting a new reading cancels the browser request and clears its old player and
 object URL. Already submitted provider work may complete and enter the cache.
 
-Server audio and successful partial chunks use a bounded 64 MiB, one-hour,
+Download audio and successful REST chunks use a bounded 64 MiB, one-hour,
 in-process cache. Identical in-flight recordings are deduplicated; at most two
 distinct recordings synthesize concurrently per process. Retries reuse successful
 chunks still in cache, and no automatic paid retry occurs. Each complete recording
 is limited to 32 MiB. The cache is not durable or shared across instances: refreshes,
 restarts, eviction or routing to another instance can incur another synthesis call.
 An expired authorization requires a new reading. No recording or narration is
-written to disk, public storage or logs. The endpoint marks audio private/no-store;
+written to disk, public storage or logs. Streaming replay uses received browser
+buffers without another paid request; Stop, refresh or a new reading clears those
+buffers. Streaming and download are separate syntheses and can both incur usage.
+The download endpoint marks audio private/no-store;
 Deepgram receives the narration on demand, not the raw birth-data payload.
 
 ## Verification
