@@ -27,7 +27,7 @@ All variables belong in the deployment environment, not the frontend:
 DEEPGRAM_API_KEY=your_deepgram_key
 DEEPGRAM_MODEL=aura-2
 DEEPGRAM_VOICE=thalia-en
-DEEPGRAM_TIMEOUT_MS=120000
+DEEPGRAM_TIMEOUT_MS=300000
 ```
 
 Deepgram's Aura API encodes the voice and language in the model identifier.

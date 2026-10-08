@@ -145,6 +145,23 @@ test("on-demand audio uses environment settings and returns one valid, seekable 
   assert.equal(calls, before, "replaying audio must not incur more provider calls");
 });
 
+test("parallel chunks preserve speech order when the second finishes first", async () => {
+  setup("parallel-order");
+  const script = "First sentence for speech. ".repeat(100) + "Last sentence for speech. ".repeat(100);
+  const texts = speech.splitSpeechText(script);
+  let active = 0; let peak = 0;
+  global.fetch = async (_, options) => {
+    const index = texts.indexOf(JSON.parse(options.body).text);
+    active++; peak = Math.max(peak, active);
+    await new Promise((resolve) => setTimeout(resolve, index === 0 ? 20 : 1));
+    active--;
+    return new Response(new Uint8Array([index + 1, 0]), { headers: { "Content-Type": "audio/l16" } });
+  };
+  const result = await provider.generateReadingAudio(script, provider.getAudioConfig());
+  assert.equal(peak, 2);
+  assert.deepEqual([...result.subarray(44)], texts.flatMap((_, index) => [index + 1, 0]));
+});
+
 test("simultaneous requests for the same script share one provider call", async () => {
   setup("dedupe"); const script = scriptFor("Concurrent listening"); let calls = 0;
   global.fetch = async () => { calls++; await new Promise((resolve) => setImmediate(resolve)); return pcmResponse(); };

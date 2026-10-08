@@ -28,9 +28,9 @@ export function getAudioConfig() {
   const apiKey = process.env.DEEPGRAM_API_KEY?.trim();
   if (!apiKey) throw new AudioError("Listening is not configured yet. Please try again later.", 503);
   const model = resolveVoiceModel(process.env.DEEPGRAM_MODEL, process.env.DEEPGRAM_VOICE);
-  const rawTimeout = Number(process.env.DEEPGRAM_TIMEOUT_MS ?? 120_000);
+  const rawTimeout = Number(process.env.DEEPGRAM_TIMEOUT_MS ?? 300_000);
   const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout >= 1000
-    ? Math.min(rawTimeout, 180_000) : 120_000;
+    ? Math.min(rawTimeout, 300_000) : 300_000;
   return { apiKey, model, timeoutMs };
 }
 
@@ -139,20 +139,35 @@ export async function generateReadingAudio(script: string, config: ReturnType<ty
 
   const task = (async () => {
     const signal = AbortSignal.timeout(config.timeoutMs);
-    const chunks: Buffer[] = [];
+    const texts = splitSpeechText(script);
+    const chunks: Buffer[] = new Array(texts.length);
+    const cancellation = new AbortController();
+    const chunkSignal = AbortSignal.any([signal, cancellation.signal]);
+    let nextIndex = 0;
     let total = 0;
-    for (const text of splitSpeechText(script)) {
-      signal.throwIfAborted();
-      const chunkKey = createHash("sha256").update(`${scope}\nchunk\n${text}`).digest("hex");
-      let chunk = getCached(chunkKey);
-      if (!chunk) {
-        chunk = await requestChunk(text, config, signal);
-        putCached(chunkKey, chunk);
+    const worker = async () => {
+      while (nextIndex < texts.length) {
+        chunkSignal.throwIfAborted();
+        const index = nextIndex++;
+        const text = texts[index];
+        const chunkKey = createHash("sha256").update(`${scope}\nchunk\n${text}`).digest("hex");
+        let chunk = getCached(chunkKey);
+        if (!chunk) {
+          chunk = await requestChunk(text, config, chunkSignal);
+          putCached(chunkKey, chunk);
+        }
+        total += chunk.length;
+        if (total > MAX_RECORDING_BYTES) throw new AudioError("The generated recording is too large.", 502);
+        chunks[index] = chunk;
       }
-      total += chunk.length;
-      if (total > MAX_RECORDING_BYTES) throw new AudioError("The generated recording is too large.", 502);
-      chunks.push(chunk);
-    }
+    };
+    // Generate concurrently but assemble by index, so narration order never changes.
+    let failure: unknown;
+    const workers = Array.from({ length: Math.min(2, texts.length) }, () => worker().catch((error) => {
+      if (!cancellation.signal.aborted) { failure = error; cancellation.abort(error); }
+    }));
+    await Promise.all(workers);
+    if (failure) throw failure;
     const wav = pcmToWav(Buffer.concat(chunks));
     putCached(key, wav);
     return wav;

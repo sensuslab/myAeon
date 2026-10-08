@@ -5,7 +5,7 @@ import { AudioError, generateReadingAudio, getAudioConfig, verifyAudio } from "@
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const InputSchema = z.object({
   script: z.string().min(80).max(MAX_AUDIO_SCRIPT_CHARS),

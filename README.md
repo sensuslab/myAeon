@@ -146,7 +146,7 @@ src/
 | `DEEPGRAM_API_KEY`   | For audio | —                              | Server-side Deepgram key; no `NEXT_PUBLIC_` prefix. |
 | `DEEPGRAM_MODEL`     | ❌       | `aura-2`                       | Aura family, or a full voice model id such as `aura-2-thalia-en`. |
 | `DEEPGRAM_VOICE`     | ❌       | `thalia-en`                    | Voice plus language; combined with the model family. Ignored when MODEL is a full id. |
-| `DEEPGRAM_TIMEOUT_MS`| ❌       | `120000`                       | Overall audio generation timeout, capped at 180000ms. |
+| `DEEPGRAM_TIMEOUT_MS`| ❌       | `300000`                       | Overall audio generation timeout, capped at 300000ms; two chunks generate concurrently. |
 
 Railway automatically provides `PORT` and `HOSTNAME` — Next.js reads them natively.
 
