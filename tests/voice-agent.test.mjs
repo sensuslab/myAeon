@@ -42,7 +42,7 @@ test('proxy gates audio, overrides settings, handles functions, updates context 
     socket.on('message', (data, binary) => {
       if (binary) { messages.push('audio'); return; }
       const msg = JSON.parse(data); messages.push(msg);
-      if (msg.type === 'Settings') socket.send(JSON.stringify({ type: 'SettingsApplied' }));
+      if (msg.type === 'Settings') setTimeout(() => socket.send(JSON.stringify({ type: 'SettingsApplied' })), 200);
     });
   });
   const voice = createVoiceAgent({ connect: () => new WebSocket(`ws://127.0.0.1:${providerServer.address().port}`) });
@@ -58,9 +58,13 @@ test('proxy gates audio, overrides settings, handles functions, updates context 
   await once(client, 'open');
   client.send(Buffer.alloc(8));
   client.send(JSON.stringify({ type: 'Settings', audio: { input: { encoding: 'linear16', sample_rate: 16000 } }, agent: { think: { provider: { model: 'deepseek' } } } }));
-  await once(client, 'message');
+  const applied = once(client, 'message');
+  assert.equal((await request({ token, context: { viewedDate: '2027-01-01' } })).status, 200);
+  await applied;
   assert.equal(messages[0].agent.think.provider.model, 'gpt-6-luna');
   assert.ok(!messages.includes('audio'));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.match(messages.find(m => m.type === 'UpdatePrompt').prompt, /2027-01-01/);
   client.send(Buffer.alloc(8));
   provider.send(JSON.stringify({ type: 'FunctionCallRequest', functions: [{ id: 'call-1', name: 'get_reading', arguments: '{}', client_side: true }] }));
   await new Promise(resolve => setTimeout(resolve, 40));

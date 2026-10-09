@@ -28,6 +28,7 @@ export function createVoiceAgent(options = {}) {
         const ticket = tickets.get(body.token);
         if (!ticket?.client || ticket.host !== req.headers.host) { respond(res, 410, { error: 'Conversation ended.' }); return true; }
         ticket.context = context;
+        if (!ticket.applied) ticket.dirty = true;
         if (ticket.applied && ticket.upstream?.readyState === WebSocket.OPEN) ticket.upstream.send(JSON.stringify({ type: 'UpdatePrompt', prompt: buildPrompt(context) }));
         respond(res, 200, { updated: true }); return true;
       }
@@ -82,7 +83,10 @@ export function createVoiceAgent(options = {}) {
         if (client.bufferedAmount > 2 * 1024 * 1024) { fail('Connection is too slow. Please reconnect.'); return; }
         if (binary) { send(data, true); return; }
         let message; try { message = JSON.parse(data.toString()); } catch { fail('Invalid voice service response.'); return; }
-        if (message.type === 'SettingsApplied') { ticket.applied = true; clearTimeout(timeout); }
+        if (message.type === 'SettingsApplied') {
+          ticket.applied = true; clearTimeout(timeout);
+          if (ticket.dirty) { ticket.dirty = false; upstream.send(JSON.stringify({ type: 'UpdatePrompt', prompt: buildPrompt(ticket.context) })); }
+        }
         if (message.type === 'UserStartedSpeaking' || message.type === 'ConversationText') lastActivity = Date.now();
         if (message.type === 'FunctionCallRequest') {
           for (const call of (message.functions || []).slice(0, 8)) {
