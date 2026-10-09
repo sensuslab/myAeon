@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
+import { ArrowLeft, FileDown, Pencil, CircleHelp } from "lucide-react";
 import type { PlanetVisual, ZodiacSign } from "@/lib/zodiac";
 import type { PlanetInsight, ReadingPayload } from "./types";
 import ReadingAudioPlayer from "./ReadingAudioPlayer";
@@ -22,6 +23,7 @@ type Props = {
   onEditDetails: () => void;
   onDownloadPdf?: () => void;
   onClearSelectedPlanet: () => void;
+  onOpenTour: () => void;
 };
 
 const TIMEFRAMES = ["Today", "3 Days", "Week", "Month"] as const;
@@ -49,6 +51,7 @@ export default function MobileReadingView({
   onEditDetails,
   onDownloadPdf,
   onClearSelectedPlanet,
+  onOpenTour,
 }: Props) {
   const [tf, setTf] = useState<Timeframe>("Today");
   const selectedInsight = selectedPlanet
@@ -73,7 +76,7 @@ export default function MobileReadingView({
                 aria-label="Back to planets"
                 className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-lg text-white/75 transition active:scale-95"
               >
-                &lt;
+                <ArrowLeft size={20} />
               </button>
               <div className="min-w-0 text-center">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-astral-cyan/80">
@@ -89,23 +92,28 @@ export default function MobileReadingView({
                     type="button"
                     onClick={onDownloadPdf}
                     disabled={pdfLoading}
-                    className="h-11 rounded-full border border-astral-gold/25 bg-astral-gold/10 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-astral-gold transition active:scale-95 disabled:opacity-60"
+                    aria-label="Download reading PDF"
+                    title="Download reading PDF"
+                    className="grid h-11 w-11 place-items-center rounded-lg border border-astral-gold/25 bg-astral-gold/10 text-astral-gold transition active:scale-95 disabled:opacity-60"
                   >
-                    {pdfLoading ? "..." : "PDF"}
+                    <FileDown size={18} className={pdfLoading ? "animate-pulse" : ""} />
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={onEditDetails}
-                  className="h-11 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-white/75 transition active:scale-95"
+                  aria-label="Edit birth details"
+                  title="Edit birth details"
+                  className="grid h-11 w-11 place-items-center rounded-lg border border-white/10 bg-white/5 text-white/75 transition active:scale-95"
                 >
-                  Edit
+                  <Pencil size={18} />
                 </button>
+                <button type="button" onClick={onOpenTour} aria-label="Quick tour" title="Quick tour" className="grid h-11 w-11 place-items-center rounded-lg border border-white/10 bg-white/5"><CircleHelp size={18} /></button>
               </div>
             </div>
           </header>
 
-          <div className="mx-auto max-w-xl space-y-5 px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-5">
+          <div className="mx-auto max-w-xl space-y-5 px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-5">
             {selectedPlanet && (
               <MobilePlanetInsight
                 planet={selectedPlanet}

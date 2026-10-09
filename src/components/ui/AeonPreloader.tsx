@@ -8,11 +8,12 @@ import type { ThemeMode } from "./types";
 type Props = {
   ready: boolean;
   theme: ThemeMode;
+  onComplete?: () => void;
 };
 
 const ENTER_EASE = [0.22, 1, 0.36, 1] as const;
 
-export default function AeonPreloader({ ready, theme }: Props) {
+export default function AeonPreloader({ ready, theme, onComplete }: Props) {
   const reduceMotion = useReducedMotion();
   const [minElapsed, setMinElapsed] = useState(false);
   const [forceExit, setForceExit] = useState(false);
@@ -45,7 +46,7 @@ export default function AeonPreloader({ ready, theme }: Props) {
   }, [forceExit, minElapsed, ready]);
 
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={onComplete}>
       {visible && (
         <motion.div
           role="status"

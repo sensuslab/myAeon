@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { CircleHelp } from "lucide-react";
 import type { ThemeMode } from "./types";
 
 type Props = {
@@ -9,9 +10,10 @@ type Props = {
   currentTime?: string;
   theme: ThemeMode;
   onToggleTheme: () => void;
+  onOpenTour: () => void;
 };
 
-export default function AppHeader({ sunSign, currentTime, theme, onToggleTheme }: Props) {
+export default function AppHeader({ sunSign, currentTime, theme, onToggleTheme, onOpenTour }: Props) {
   const nextTheme = theme === "dark" ? "light" : "dark";
 
   return (
@@ -40,6 +42,7 @@ export default function AppHeader({ sunSign, currentTime, theme, onToggleTheme }
       </div>
 
       <div className="flex items-center gap-2 pointer-events-auto md:gap-5">
+        <button type="button" onClick={onOpenTour} aria-label="Quick tour" title="Quick tour" className="grid h-11 w-11 place-items-center rounded-lg glass text-astral-gold"><CircleHelp size={18} /></button>
         <div className="hidden md:flex items-center gap-6 text-xs text-white/50">
           {currentTime && (
             <span className="tabular-nums tracking-wider">{currentTime}</span>

@@ -9,6 +9,7 @@ import PlanetTooltip from "@/components/ui/PlanetTooltip";
 import PlanetInfoBar from "@/components/ui/PlanetInfoBar";
 import HowItWorksModal from "@/components/ui/HowItWorksModal";
 import AeonPreloader from "@/components/ui/AeonPreloader";
+import QuickTour from "@/components/ui/QuickTour";
 import MobileBottomActions from "@/components/ui/MobileBottomActions";
 import MobileReadingDrawer from "@/components/ui/MobileReadingDrawer";
 import MobileReadingView from "@/components/ui/MobileReadingView";
@@ -67,6 +68,25 @@ export default function Home() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileReadingOpen, setMobileReadingOpen] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [appReady, setAppReady] = useState(false);
+  const handlePreloaderComplete = useCallback(() => setAppReady(true), []);
+  const openTour = useCallback(() => {
+    setVoiceOpen(false);
+    setHowItWorksOpen(false);
+    setTourOpen(true);
+  }, []);
+  const closeTour = useCallback(() => {
+    setTourOpen(false);
+    try { window.localStorage.setItem("aeon-walkthrough-v1", "seen"); } catch {}
+  }, []);
+  useEffect(() => {
+    if (!appReady) return;
+    try {
+      if (!window.localStorage.getItem("aeon-walkthrough-v1")) setTourOpen(true);
+    } catch { setTourOpen(true); }
+  }, [appReady]);
   const [skyDate, setSkyDate] = useState(todayInputValue);
 
   // Compute the displayed sky for the selected reading date.
@@ -123,13 +143,6 @@ export default function Home() {
     themeMeta?.setAttribute("content", theme === "light" ? "#eef6f9" : "#050616");
   }, [theme, themeReady]);
 
-  useEffect(() => {
-    if (isMobile && reading && !loading && mobileDrawerOpen) {
-      setMobileDrawerOpen(false);
-      setMobileReadingOpen(true);
-    }
-  }, [isMobile, loading, mobileDrawerOpen, reading]);
-
   const fetchReading = useCallback(async (input: BirthInput, s: ZodiacSign) => {
     setSign(s);
     setError(null);
@@ -145,12 +158,16 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
       setReading(data as ReadingPayload);
+      if (isMobile) {
+        setMobileDrawerOpen(false);
+        setMobileReadingOpen(true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isMobile]);
 
   const handlePlanetClick = useCallback((p: PlanetVisual) => {
     setSelectedPlanet(p);
@@ -210,6 +227,7 @@ export default function Home() {
         currentTime={currentTime}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onOpenTour={openTour}
       />
 
       <div className="hidden md:block">
@@ -244,10 +262,12 @@ export default function Home() {
       </div>
 
       <MobileBottomActions
-        hidden={mobileDrawerOpen || mobileReadingOpen}
+        hidden={mobileDrawerOpen || voiceOpen || tourOpen || howItWorksOpen}
+        readingView={mobileReadingOpen}
+        onTalk={() => setVoiceOpen(true)}
         loading={loading}
         reading={reading}
-        onOpenDrawer={() => setMobileDrawerOpen(true)}
+        onOpenDrawer={() => { setMobileReadingOpen(false); setMobileDrawerOpen(true); }}
         onOpenReading={() => setMobileReadingOpen(true)}
       />
 
@@ -269,6 +289,7 @@ export default function Home() {
       />
 
       <MobileReadingView
+        onOpenTour={openTour}
         open={mobileReadingOpen}
         reading={reading}
         audio={audio}
@@ -295,8 +316,9 @@ export default function Home() {
         onClose={() => setHowItWorksOpen(false)}
       />
 
-      <AeonPreloader ready={sceneReady} theme={theme} />
-      <VoiceExplorer reading={reading} viewedDate={skyDate} selectedPlanet={selectedPlanet?.id ?? null} onStart={() => { audio.stream.stop(); audio.pause(); }} />
+      <AeonPreloader ready={sceneReady} theme={theme} onComplete={handlePreloaderComplete} />
+      <QuickTour open={tourOpen} onClose={closeTour} />
+      <VoiceExplorer open={voiceOpen} onOpen={() => setVoiceOpen(true)} onClose={() => setVoiceOpen(false)} reading={reading} viewedDate={skyDate} selectedPlanet={selectedPlanet?.id ?? null} onStart={() => { audio.stream.stop(); audio.pause(); }} />
     </main>
   );
 }

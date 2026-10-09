@@ -46,24 +46,32 @@ export default function HowItWorksModal({ open, onClose }: Props) {
               </button>
             </div>
 
-            <div className="space-y-4 text-sm text-white/85 leading-relaxed">
+            <div className="space-y-4 text-sm text-[var(--app-text)] leading-relaxed">
               <Section title="What you&apos;re seeing">
                 A live 3D model of our solar system. The Sun provides the main
                 light while a soft celestial fill keeps each planet legible.
                 The positions of the planets are calculated using the <code className="text-astral-cyan">astronomy-engine</code> library
-                from your current time and date, so the scene is a faithful
-                snapshot of the real solar system right now.
+                for the selected date. The scene is an illustrative heliocentric
+                snapshot; Zeus uses a separate geocentric sky calculation.
               </Section>
 
               <Section title="Where the reading comes from">
-                When you submit your birth date, Aeon sends a single
-                privacy-preserving request to <code className="text-astral-cyan">api.deepseek.com</code> using the
+                When you submit your birth details, Aeon sends them to
+                <code className="text-astral-cyan">api.deepseek.com</code> using the
                 DeepSeek V4 Pro language model. The model is asked to write a
                 structured reading across four life domains (love, purpose,
                 body, inner world), four time horizons (today, three days,
                 this week, this month), and a personal note for each visible
                 planet. The response is parsed and rendered in the right-hand
                 panel.
+              </Section>
+
+              <Section title="Talk to Zeus">
+                Zeus uses Deepgram Voice Agent with GPT 6 Luna and an Aura 2
+                Hyperion voice. He receives the selected-date sky and your
+                current reading when available. No full natal chart is currently
+                calculated. Microphone access starts only when you start a
+                conversation; closing it stops the microphone.
               </Section>
 
               <Section title="What Aeon is careful about">
@@ -76,10 +84,12 @@ export default function HowItWorksModal({ open, onClose }: Props) {
               </Section>
 
               <Section title="Your data">
-                Your birth date, time, and place are sent to the model only
-                for the duration of the request. Nothing is logged or stored.
-                The <code className="text-astral-cyan">DEEPSEEK_API_KEY</code> lives only on the server, never in your browser.
-                No tracking, no analytics, no cookies.
+                Reading details are processed by DeepSeek. Listening and voice
+                conversations are processed by Deepgram and its applicable model
+                provider. Their privacy and retention policies apply. myAeon does
+                not save conversations; active voice context is held temporarily
+                on the server. Theme and quick-tour preferences are saved in your
+                browser. API keys stay on the server, never in your browser.
               </Section>
 
               <Section title="The source">

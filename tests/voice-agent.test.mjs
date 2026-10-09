@@ -19,6 +19,8 @@ test('model, voice and prompt remain independent of written reading provider', (
   assert.equal(settings.agent.think.provider.model, 'gpt-6-luna');
   assert.equal(settings.agent.speak.provider.model, 'aura-2-hyperion-en');
   assert.equal(settings.agent.think.provider.reasoning_mode, 'none');
+  assert.match(settings.agent.greeting, /Zeus/);
+  assert.match(buildPrompt({ viewedDate: '2026-10-09' }), /You are Zeus/);
   assert.ok(!settings.agent.think.endpoint);
   assert.match(buildPrompt({ viewedDate: '2026-10-09' }), /No calculated natal chart/);
 });
