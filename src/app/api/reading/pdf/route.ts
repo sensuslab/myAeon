@@ -37,6 +37,7 @@ const PdfInputSchema = z.object({
     affirmation: z.string().max(600).optional().default(""),
     meta: z
       .object({
+        astrology: z.object({ contextId: z.string().regex(/^[a-f0-9]{48}$/).optional() }).optional(),
         model: z.string().max(120).optional(),
         generatedAt: z.string().max(80).optional(),
         readingDate: z.string().max(40).optional(),
@@ -245,7 +246,7 @@ function h2(doc: PDFKit.PDFDocument, reading: ReadingPdfInput, pageNumberRef: { 
   doc.y += 18;
 }
 
-function renderReadingPdf(reading: ReadingPdfInput) {
+function renderReadingPdf(reading: ReadingPdfInput, provenance: string[]) {
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
@@ -325,7 +326,7 @@ function renderReadingPdf(reading: ReadingPdfInput) {
     if (insights.length) {
       h2(doc, reading, pageNumberRef, "Planet Insights");
       insights.forEach((insight) => {
-        const position = `${sanitizeText(insight.sign)} ${Math.floor(insight.degree ?? 0)} deg`;
+        const position = insight.id === "earth" ? "Reflective grounding note" : `${sanitizeText(insight.sign)} ${Math.floor(insight.degree ?? 0)} deg (geocentric)`;
         const reflection = insight.reflection ? `\n\nReflection: ${insight.reflection}` : "";
         card(doc, reading, pageNumberRef, {
           title: insight.title,
@@ -347,6 +348,7 @@ function renderReadingPdf(reading: ReadingPdfInput) {
         reading.meta?.readingDate ? `Sky date: ${reading.meta.readingDate}` : null,
         reading.meta?.model ? `Model: ${reading.meta.model}` : null,
         reading.meta?.generatedAt ? `Generated: ${reading.meta.generatedAt}` : null,
+        ...provenance,
         "Astrology is presented as a reflective symbolic lens, not as certainty or prediction.",
       ]
         .filter(Boolean)
@@ -371,7 +373,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid reading payload.", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const pdf = await renderReadingPdf(parsed.data.reading);
+  const { astrology } = await import("../../../../../server/astrology.mjs");
+  const { requestIdentity } = await import("../../../../../server/astrology-quota.mjs");
+  let provenance = ['Chart context: no retrievable server-owned chart. Natal verification is unavailable.'];
+  const contextId = parsed.data.reading.meta.astrology?.contextId;
+  if (contextId) {
+    try {
+      const context = astrology.resolveContext(requestIdentity(req).id, contextId);
+      if (context) provenance = [
+        `Chart source: ${context.source} / ${context.settings.apiVersion}`,
+        `Frame: ${context.settings.frame}; ${context.settings.zodiac}; ${context.settings.houses}`,
+        `Birth-time confidence: ${context.confidence}`,
+        `Context: ${context.id}; computed ${context.computedAt}`,
+        `Snapshots: ${context.snapshots.map(s => `${s.date} (${s.label})`).join(', ')} at noon ${context.targetTimezone}`,
+        ...context.limitations,
+      ];
+    } catch { provenance = ['Chart context expired or could not be verified. Existing reading text is preserved; no new calculation was made.']; }
+  }
+  const pdf = await renderReadingPdf(parsed.data.reading, provenance);
   const date = parsed.data.reading.meta?.readingDate ?? new Date().toISOString().slice(0, 10);
   const filename = `${fileSafe(parsed.data.reading.sunSign.name)}-myAeon-reading-${fileSafe(date)}.pdf`;
 

@@ -1,6 +1,6 @@
 # Astrologer-API Integration Plan
 
-Status: proposed; no provider integration or API-key use in this release.
+Status: implementation completed on the development branch. See [Astrologer integration](./astrologer-integration.md) for implemented behavior, configuration and deployment checks. Hosted calls remain opt-in; live subscription validation requires the deployment key. The user-selected allowance is five total attempts per anonymous browser identity, shared across reading and voice. London, UK / Europe/London are the defaults.
 
 ## Product Outcome
 

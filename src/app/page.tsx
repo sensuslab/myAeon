@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppHeader from "@/components/ui/AppHeader";
 import ControlPanel, { type BirthInput } from "@/components/ui/ControlPanel";
+import { initialBirthInput, londonToday, birthProfile, profileFingerprint } from "@/components/ui/BirthDetailsForm";
+import type { AstrologyUsage } from "@/lib/astrologyTypes";
 import ReadingPanel from "@/components/ui/ReadingPanel";
 import PlanetTooltip from "@/components/ui/PlanetTooltip";
 import PlanetInfoBar from "@/components/ui/PlanetInfoBar";
@@ -32,7 +34,7 @@ const SceneCanvas = dynamic(() => import("@/components/scene/SceneCanvas"), {
 const VoiceExplorer = dynamic(() => import("@/components/ui/VoiceExplorer"), { ssr: false });
 
 function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  return londonToday();
 }
 
 function dateFromInput(value: string) {
@@ -51,6 +53,35 @@ function formatSkyDate(value: string) {
 }
 
 export default function Home() {
+  const [birthInput, setBirthInput] = useState(initialBirthInput);
+  const [confirmedProfile, setConfirmedProfile] = useState<{ id: string; fingerprint: string } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [profileStatus, setProfileStatus] = useState<string | null>(null);
+  const [usage, setUsage] = useState<AstrologyUsage | null>(null);
+  const [enrichmentEnabled, setEnrichmentEnabled] = useState(false);
+  const fingerprint = profileFingerprint(birthInput);
+  const profileId = confirmedProfile?.fingerprint === fingerprint ? confirmedProfile.id : undefined;
+  const refreshUsage = useCallback(async () => {
+    try {
+      const response = await fetch('/api/astrology/profile');
+      const data = await response.json();
+      setUsage(data.usage || null); setEnrichmentEnabled(Boolean(data.enabled));
+    } catch { setEnrichmentEnabled(false); }
+  }, []);
+  useEffect(() => { void refreshUsage(); }, [refreshUsage]);
+  const confirmProfile = useCallback(async (input: BirthInput) => {
+    const response = await fetch('/api/astrology/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(birthProfile(input)) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Could not confirm birth details.');
+    setConfirmedProfile({ id: data.profileId, fingerprint: profileFingerprint(input) });
+    setProfileStatus('Birth details confirmed for Zeus. Chart calculations start when needed.');
+    return data.profileId as string;
+  }, []);
+  const handleConfirm = useCallback(async (input: BirthInput) => {
+    setConfirming(true); setProfileStatus(null);
+    try { await confirmProfile(input); } catch (err) { setProfileStatus(err instanceof Error ? err.message : 'Could not confirm details.'); }
+    finally { setConfirming(false); }
+  }, [confirmProfile]);
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,15 +110,16 @@ export default function Home() {
   }, []);
   const closeTour = useCallback(() => {
     setTourOpen(false);
-    try { window.localStorage.setItem("aeon-walkthrough-v1", "seen"); } catch {}
+    try { window.localStorage.setItem("aeon-walkthrough-astrologer-v2", "seen"); } catch {}
   }, []);
   useEffect(() => {
     if (!appReady) return;
     try {
-      if (!window.localStorage.getItem("aeon-walkthrough-v1")) setTourOpen(true);
+      if (!window.localStorage.getItem("aeon-walkthrough-astrologer-v2")) setTourOpen(true);
     } catch { setTourOpen(true); }
   }, [appReady]);
-  const [skyDate, setSkyDate] = useState(todayInputValue);
+  const skyDate = birthInput.readingDate;
+  const changeBirthInput = useCallback((input: BirthInput) => { setBirthInput(input); setProfileStatus(null); }, []);
 
   // Compute the displayed sky for the selected reading date.
   const snapshot: CosmicSnapshot = useMemo(() => {
@@ -108,9 +140,7 @@ export default function Home() {
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      const hh = String(now.getHours()).padStart(2, "0");
-      const mm = String(now.getMinutes()).padStart(2, "0");
-      setCurrentTime(`${hh}:${mm}`);
+      setCurrentTime(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now));
     };
     update();
     const id = setInterval(update, 30_000);
@@ -150,14 +180,16 @@ export default function Home() {
     setLoading(true);
 
     try {
+      const confirmedId = input.confirmed ? await confirmProfile(input) : undefined;
       const res = await fetch("/api/reading", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, birthTime: input.timeConfidence === "unknown" ? undefined : input.birthTime, birthPlace: `${input.location.city}, ${input.location.nation}`, profileId: confirmedId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
       setReading(data as ReadingPayload);
+      if (data.meta?.astrology?.usage) setUsage(data.meta.astrology.usage);
       if (isMobile) {
         setMobileDrawerOpen(false);
         setMobileReadingOpen(true);
@@ -166,8 +198,9 @@ export default function Home() {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
+      void refreshUsage();
     }
-  }, [isMobile]);
+  }, [isMobile, confirmProfile, refreshUsage]);
 
   const handlePlanetClick = useCallback((p: PlanetVisual) => {
     setSelectedPlanet(p);
@@ -237,7 +270,9 @@ export default function Home() {
           onViewChange={setFlat}
           flat={flat}
           onHowItWorks={() => setHowItWorksOpen(true)}
-          onReadingDateChange={setSkyDate}
+          input={birthInput} onChange={changeBirthInput} onConfirm={handleConfirm}
+          confirming={confirming} profileConfirmed={Boolean(profileId)} status={profileStatus}
+          usage={usage} enrichmentEnabled={enrichmentEnabled}
         />
       </div>
 
@@ -285,7 +320,9 @@ export default function Home() {
           setMobileReadingOpen(true);
         }}
         onHowItWorks={() => setHowItWorksOpen(true)}
-        onReadingDateChange={setSkyDate}
+        input={birthInput} onChange={changeBirthInput} onConfirm={handleConfirm}
+        confirming={confirming} profileConfirmed={Boolean(profileId)} status={profileStatus}
+        usage={usage} enrichmentEnabled={enrichmentEnabled}
       />
 
       <MobileReadingView
@@ -318,7 +355,7 @@ export default function Home() {
 
       <AeonPreloader ready={sceneReady} theme={theme} onComplete={handlePreloaderComplete} />
       <QuickTour open={tourOpen} onClose={closeTour} />
-      <VoiceExplorer open={voiceOpen} onOpen={() => setVoiceOpen(true)} onClose={() => setVoiceOpen(false)} reading={reading} viewedDate={skyDate} selectedPlanet={selectedPlanet?.id ?? null} onStart={() => { audio.stream.stop(); audio.pause(); }} />
+      <VoiceExplorer profileId={profileId} contextId={reading?.meta?.astrology?.contextId} onUsageRefresh={refreshUsage} open={voiceOpen} onOpen={() => setVoiceOpen(true)} onClose={() => setVoiceOpen(false)} reading={reading} viewedDate={skyDate} selectedPlanet={selectedPlanet?.id ?? null} onStart={() => { audio.stream.stop(); audio.pause(); }} />
     </main>
   );
 }

@@ -4,7 +4,7 @@ import { AudioLines, X, Mic, MicOff, Volume2, VolumeX, Send } from "lucide-react
 import { AgentProvider, Orb, useAgentContext } from "@deepgram/ui";
 import type { AgentSessionConfig } from "@deepgram/agents";
 import type { ReadingPayload } from "./types";
-type Props = { reading: ReadingPayload | null; viewedDate: string; selectedPlanet: string | null; onStart: () => void; open: boolean; onOpen: () => void; onClose: () => void };
+type Props = { profileId?: string; contextId?: string; onUsageRefresh: () => void; reading: ReadingPayload | null; viewedDate: string; selectedPlanet: string | null; onStart: () => void; open: boolean; onOpen: () => void; onClose: () => void };
 
 function Conversation({ onEnd }: { onEnd: (error?: string) => void }) {
   const agent = useAgentContext();
@@ -42,16 +42,16 @@ function Conversation({ onEnd }: { onEnd: (error?: string) => void }) {
   </>;
 }
 
-export default function VoiceExplorer({ reading, viewedDate, selectedPlanet, onStart, open, onOpen, onClose }: Props) {
+export default function VoiceExplorer({ profileId, contextId, onUsageRefresh, reading, viewedDate, selectedPlanet, onStart, open, onOpen, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [sessionVersion, setSessionVersion] = useState(0);
   const [viewportHeight, setViewportHeight] = useState<number>();
-  const context = useRef({ reading, viewedDate, selectedPlanet });
+  const context = useRef({ reading, viewedDate, selectedPlanet, profileId, contextId });
   const token = useRef<string | null>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const launchButton = useRef<HTMLButtonElement>(null);
   const startRef = useRef(onStart);
-  startRef.current = onStart; context.current = { reading, viewedDate, selectedPlanet };
+  startRef.current = onStart; context.current = { reading, viewedDate, selectedPlanet, profileId, contextId };
   const config = useMemo<AgentSessionConfig>(() => ({
     url: `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/explore`, reconnect: { enabled: false },
     auth: { tokenFactory: async () => {
@@ -69,15 +69,15 @@ export default function VoiceExplorer({ reading, viewedDate, selectedPlanet, onS
     const controller = new AbortController();
     void fetch("/api/explore/session", { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, context: context.current }) }).then(res => { if (!res.ok && res.status !== 410) setError("Restart the conversation to use your latest reading."); }).catch(() => { if (!controller.signal.aborted) setError("Could not refresh conversation context."); });
     return () => controller.abort();
-  }, [reading, viewedDate, selectedPlanet, open]);
+  }, [reading, viewedDate, selectedPlanet, profileId, contextId, open]);
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const updateHeight = () => setViewportHeight(window.visualViewport?.height || window.innerHeight);
     updateHeight(); window.visualViewport?.addEventListener("resize", updateHeight); window.addEventListener("resize", updateHeight);
     setError(null); token.current = null; closeButton.current?.focus();
-    return () => { window.visualViewport?.removeEventListener("resize", updateHeight); window.removeEventListener("resize", updateHeight); token.current = null; requestAnimationFrame(() => previous?.isConnected ? previous.focus() : launchButton.current?.focus()); };
-  }, [open]);
+    return () => { onUsageRefresh(); window.visualViewport?.removeEventListener("resize", updateHeight); window.removeEventListener("resize", updateHeight); token.current = null; requestAnimationFrame(() => previous?.isConnected ? previous.focus() : launchButton.current?.focus()); };
+  }, [open, onUsageRefresh]);
   return <>
     <button ref={launchButton} type="button" onClick={onOpen} aria-label="Talk to Zeus" className="fixed left-1/2 top-6 z-40 hidden min-h-11 -translate-x-1/2 items-center gap-2 rounded-lg border border-[var(--panel-border)] bg-[var(--panel-strong-bg)] px-3 text-sm text-[var(--app-text)] shadow-lg md:flex"><AudioLines size={18} /> Talk to Zeus</button>
     {open && <div className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-sm" onClick={onClose}>
@@ -87,8 +87,8 @@ export default function VoiceExplorer({ reading, viewedDate, selectedPlanet, onS
       }}>
         <header className="flex shrink-0 items-center justify-between border-b border-[var(--panel-border)] px-5 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)]"><div><h2 id="voice-heading" className="text-lg font-medium">Talk to Zeus</h2><p className="mt-1 text-xs opacity-60">{reading ? "Your reading and the sky" : "The sky and astrology"}</p></div><button ref={closeButton} onClick={onClose} aria-label="Close and end conversation" className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-white/10"><X size={20} /></button></header>
         {error && <p role="alert" className="mx-5 mt-3 text-sm text-red-500">{error}</p>}
-        <AgentProvider key={sessionVersion} config={config} tts><Conversation onEnd={message => { token.current = null; setError(message || null); setSessionVersion(value => value + 1); }} /></AgentProvider>
-        <p style={{ display: viewportHeight && viewportHeight < 320 ? "none" : undefined }} className="shrink-0 border-t border-[var(--panel-border)] px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 text-xs leading-5 opacity-60">Audio is processed by Deepgram. Conversations are not saved by myAeon. Astrology offers reflection, not certainty.</p>
+        <AgentProvider key={sessionVersion} config={config} tts><Conversation onEnd={message => { token.current = null; onUsageRefresh(); setError(message || null); setSessionVersion(value => value + 1); }} /></AgentProvider>
+        <p style={{ display: viewportHeight && viewportHeight < 320 ? "none" : undefined }} className="shrink-0 border-t border-[var(--panel-border)] px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 text-xs leading-5 opacity-60">Audio and chart context are processed by Deepgram and its model provider. Conversations are not saved by myAeon. Astrology offers reflection, not certainty.</p>
       </section>
     </div>}
   </>;

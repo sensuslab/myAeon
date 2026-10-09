@@ -164,7 +164,7 @@ The Sun component holds the only point light source — this means every planet 
 
 `src/app/api/reading/route.ts` accepts a POST with the user's birth date (and optional name/time/place). It:
 
-1. Uses `astronomy-engine` again to compute the sun's geocentric ecliptic longitude at the user's birth → maps that to their sun sign.
+1. Reuses a confirmed Astrologer v6 natal chart and four dated transit snapshots when configured, within five total calls per anonymous browser user. Otherwise it supplies limited local geocentric sky facts and a date-only Sun-sign theme. London, UK / Europe/London are the defaults; scene positions remain heliocentric.
 2. Builds a system prompt that asks for 16 sections across four timeframes, eight planet insights, and a separate complete `audioScript` in strict JSON.
 3. Calls `POST {DEEPSEEK_API_BASE}/chat/completions` with model `deepseek-v4-pro` by default, JSON output enabled, and thinking disabled for this strict JSON flow.
 4. Parses the JSON, stripping code fences or reasoning tags if the model includes them.
@@ -172,6 +172,8 @@ The Sun component holds the only point light source — this means every planet 
 6. Only when Listen is pressed, `/api/reading/audio` verifies the script authorization and calls Deepgram. Sentence-aware chunks are joined into a single WAV for full duration, seeking and playback. Replays reuse browser audio, with a bounded one-hour server cache for repeat requests.
 
 The API key is read from `process.env.DEEPSEEK_API_KEY` on the server only — it never reaches the browser.
+
+See [Astrologer integration setup and quota semantics](docs/astrologer-integration.md) for the server-only variables, persistent Railway volume, birth confirmation, shared Zeus functions and walkthrough.
 
 ### Verify reading audio
 

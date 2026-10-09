@@ -8,7 +8,9 @@
     "start": "NODE_ENV=production node server.mjs",
     "lint": "next lint",
     "test:audio": "node --test tests/reading-audio.test.cjs tests/reading-stream.test.mjs",
-    "test:agent": "node --test tests/voice-agent.test.mjs"
+    "test:agent": "node --test tests/voice-agent.test.mjs",
+    "test:astrology": "node --test tests/astrology.test.mjs tests/astrology-reading.test.cjs",
+    "test": "node --test tests/*.test.*"
   },
   "dependencies": {
     "@deepgram/agents": "^0.1.2",

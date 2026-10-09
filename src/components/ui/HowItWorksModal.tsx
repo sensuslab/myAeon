@@ -52,11 +52,11 @@ export default function HowItWorksModal({ open, onClose }: Props) {
                 light while a soft celestial fill keeps each planet legible.
                 The positions of the planets are calculated using the <code className="text-astral-cyan">astronomy-engine</code> library
                 for the selected date. The scene is an illustrative heliocentric
-                snapshot; Zeus uses a separate geocentric sky calculation.
+                snapshot. Readings and Zeus use geocentric tropical chart facts, so displayed signs may differ. Earth is a reflective note, never an ordinary geocentric natal planet.
               </Section>
 
               <Section title="Where the reading comes from">
-                When you submit your birth details, Aeon sends them to
+                Confirmed birth information is used by the hosted Astrologer v6 service to calculate natal placements and dated transits. Those validated facts are shared with Zeus and sent to
                 <code className="text-astral-cyan">api.deepseek.com</code> using the
                 DeepSeek V4 Pro language model. The model is asked to write a
                 structured reading across four life domains (love, purpose,
@@ -69,8 +69,7 @@ export default function HowItWorksModal({ open, onClose }: Props) {
               <Section title="Talk to Zeus">
                 Zeus uses Deepgram Voice Agent with GPT 6 Luna and an Aura 2
                 Hyperion voice. He receives the selected-date sky and your
-                current reading when available. No full natal chart is currently
-                calculated. Microphone access starts only when you start a
+                current reading when available. Confirmed known birth time can supply a calculated natal chart. Estimated times omit houses and angles; unknown times omit exact natal placements and aspects. Zeus retrieves natal, transit and lunar details on demand, within the same allowance as readings. Microphone access starts only when you start a
                 conversation; closing it stops the microphone.
               </Section>
 
@@ -84,12 +83,16 @@ export default function HowItWorksModal({ open, onClose }: Props) {
               </Section>
 
               <Section title="Your data">
-                Reading details are processed by DeepSeek. Listening and voice
+                Confirmed birth information is processed by Astrologer when a chart is requested. Reading details and chart facts are processed by DeepSeek. Listening and voice
                 conversations are processed by Deepgram and its applicable model
                 provider. Their privacy and retention policies apply. myAeon does
                 not save conversations; active voice context is held temporarily
-                on the server. Theme and quick-tour preferences are saved in your
+                on the server. Private profile and chart facts are cached temporarily for up to one hour. A signed anonymous browser cookie identifies your five-call total allowance; only a hashed usage counter is persisted. Clearing cookies creates a new anonymous identity because this app has no account login. Theme and quick-tour preferences are saved in your
                 browser. API keys stay on the server, never in your browser.
+              </Section>
+
+              <Section title="Chart allowance">
+                Five hosted API attempts per anonymous browser user in total, shared across reading and voice. One natal plus four transit snapshots can use the whole allowance. Cached results and local sky or Moon calculations cost no calls. Failures count; when enrichment is unavailable, the app shows the limits and continues with local facts.
               </Section>
 
               <Section title="The source">

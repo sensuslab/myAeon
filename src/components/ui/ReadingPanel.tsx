@@ -1,4 +1,5 @@
 "use client";
+import AstrologyStatus from "./AstrologyStatus";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -152,6 +153,8 @@ export default function ReadingPanel({
               </p>
             </div>
 
+            <AstrologyStatus metadata={reading.meta?.astrology} />
+
             {/* Timeframe tabs */}
             <div className="flex gap-1 p-1 rounded-xl bg-black/30">
               {TIMEFRAMES.map((t) => (
@@ -265,7 +268,7 @@ function PlanetFocusCard({
           </div>
           {positionLabel && (
             <p className="mt-1 text-[10px] uppercase tracking-widest text-white/45">
-              {positionLabel}
+              Visual heliocentric: {positionLabel}
             </p>
           )}
         </div>

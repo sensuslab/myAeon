@@ -27,6 +27,7 @@ export type ReadingPayload = {
   audioScript?: string;
   audioAuthorization?: AudioAuthorization;
   meta?: {
+    astrology?: import("@/lib/astrologyTypes").AstrologyMetadata;
     provider?: string;
     model?: string;
     endpoint?: string;

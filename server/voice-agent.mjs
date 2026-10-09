@@ -1,9 +1,38 @@
 import { randomBytes } from 'node:crypto';
 import WebSocket, { WebSocketServer } from 'ws';
+import { astrology, providerConfigured } from './astrology.mjs';
+import { userIdentity } from './astrology-quota.mjs';
 import { contextSchema, agentSettings, buildPrompt, runFunction } from './agent-context.mjs';
 
 const sameOrigin = req => { try { return new URL(req.headers.origin).host === req.headers.host; } catch { return false; } };
 export function createVoiceAgent(options = {}) {
+  const service = options.astrology || astrology;
+  async function hydrate(context, owner, signal) {
+    let data;
+    if (owner && context.contextId) {
+      try { data = service.resolveContext(owner, context.contextId); } catch { data = null; }
+      if (data && (data.selectedDate !== context.viewedDate || (context.profileId && data.profileId !== context.profileId))) data = null;
+    }
+    let profileId = context.profileId;
+    if (!data) {
+      try { data = await service.prepare(owner, profileId, context.viewedDate, false, signal); }
+      catch (error) {
+        if (signal.aborted || error.code !== 'context_expired') throw error;
+        profileId = undefined;
+        data = await service.prepare(owner, undefined, context.viewedDate, false, signal);
+        data.limitations.push('Confirmed profile or chart context expired. Confirm birth details again for natal facts.');
+      }
+    }
+    return { ...context, astrology: data, loadTransits: async date => {
+      const next = await service.prepare(owner, profileId, date, false, signal);
+      if (!signal.aborted) {
+        const snapshot = next.snapshots[0];
+        if (!data.snapshots.some(s => s.date === date)) data.snapshots.push(snapshot);
+        data.limitations = [...new Set([...data.limitations, ...next.limitations])]; data.usage = next.usage;
+      }
+      return next;
+    } };
+  }
   const tickets = new Map();
   const limits = new Map();
   const connect = options.connect || (() => new WebSocket('wss://agent.deepgram.com/v1/agent/converse', { headers: { Authorization: `Token ${process.env.DEEPGRAM_API_KEY?.trim()}` }, handshakeTimeout: 15000 }));
@@ -23,10 +52,21 @@ export function createVoiceAgent(options = {}) {
       let bytes = 0; const chunks = [];
       for await (const chunk of req) { bytes += chunk.length; if (bytes > 100000) throw new Error('Too large'); chunks.push(chunk); }
       const body = JSON.parse(Buffer.concat(chunks).toString());
-      const context = contextSchema.parse(body.context);
+      let context = contextSchema.parse(body.context);
+      let owner = null;
+      if (providerConfigured() || context.profileId || context.contextId) {
+        try {
+          const user = userIdentity(req.headers.cookie || '', process.env.NODE_ENV === 'production' || /^https:/.test(req.headers.origin || ''));
+          owner = user.id; if (user.cookie) res.setHeader('Set-Cookie', user.cookie);
+        } catch { context = { ...context, profileId: undefined, contextId: undefined }; }
+      }
       if (body.token) {
         const ticket = tickets.get(body.token);
-        if (!ticket?.client || ticket.host !== req.headers.host) { respond(res, 410, { error: 'Conversation ended.' }); return true; }
+        if (!ticket?.client || ticket.host !== req.headers.host || ticket.owner !== owner) { respond(res, 410, { error: 'Conversation ended.' }); return true; }
+        ticket.preparation.abort(); ticket.preparation = new AbortController();
+        const version = ++ticket.version;
+        context = await hydrate(context, owner, ticket.preparation.signal);
+        if (ticket.version !== version || ticket.preparation.signal.aborted) { respond(res, 409, { error: 'Context changed again.' }); return true; }
         ticket.context = context;
         if (!ticket.applied) ticket.dirty = true;
         if (ticket.applied && ticket.upstream?.readyState === WebSocket.OPEN) ticket.upstream.send(JSON.stringify({ type: 'UpdatePrompt', prompt: buildPrompt(context) }));
@@ -36,8 +76,12 @@ export function createVoiceAgent(options = {}) {
       const limit = limits.get(address) || { count: 0, expires: Date.now() + 60000 };
       if (++limit.count > 12 || tickets.size >= 100) { respond(res, 429, { error: 'Please wait a moment before starting another conversation.' }); return true; }
       limits.set(address, limit);
+      const preparation = new AbortController();
+      const closed = () => { if (!res.writableEnded) preparation.abort(); };
+      res.once('close', closed);
+      try { context = await hydrate(context, owner, preparation.signal); } finally { res.off('close', closed); }
       const token = randomBytes(32).toString('hex');
-      tickets.set(token, { context, host: req.headers.host, expires: Date.now() + 30000 });
+      tickets.set(token, { context, owner, preparation, version: 0, toolCalls: 0, pendingTools: 0, host: req.headers.host, expires: Date.now() + 30000 });
       respond(res, 200, { token });
     } catch { respond(res, 400, { error: 'Could not prepare conversation context.' }); }
     return true;
@@ -61,7 +105,7 @@ export function createVoiceAgent(options = {}) {
       const lifetime = setTimeout(() => fail('This conversation has reached its 15-minute limit. Start a new conversation to continue.'), 15 * 60000);
       let lastActivity = Date.now();
       const idle = setInterval(() => { messages = 0; if (Date.now() - lastActivity > 3 * 60000) fail('Conversation paused after three minutes of inactivity.'); }, 10000);
-      const cleanup = () => { if (cleaned) return; cleaned = true; clearTimeout(timeout); clearTimeout(lifetime); clearInterval(idle); tickets.delete(token); upstream.terminate(); };
+      const cleanup = () => { if (cleaned) return; cleaned = true; clearTimeout(timeout); clearTimeout(lifetime); clearInterval(idle); tickets.delete(token); ticket.preparation.abort(); upstream.terminate(); };
       client.on('close', cleanup); client.on('error', cleanup);
       client.on('message', (data, binary) => {
         if (++messages > 1500 || data.length > 100000 || upstream.bufferedAmount > 2 * 1024 * 1024) { fail('Connection overloaded. Please reconnect.'); return; }
@@ -79,7 +123,7 @@ export function createVoiceAgent(options = {}) {
         if (ticket.applied && message.type === 'InjectUserMessage' && typeof message.content === 'string' && message.content.length <= 2000) { lastActivity = Date.now(); upstream.send(JSON.stringify({ type: 'InjectUserMessage', content: message.content })); }
       });
       upstream.on('open', () => { if (pendingSettings) { upstream.send(pendingSettings); pendingSettings = null; } });
-      upstream.on('message', (data, binary) => {
+      upstream.on('message', async (data, binary) => {
         if (client.bufferedAmount > 2 * 1024 * 1024) { fail('Connection is too slow. Please reconnect.'); return; }
         if (binary) { send(data, true); return; }
         let message; try { message = JSON.parse(data.toString()); } catch { fail('Invalid voice service response.'); return; }
@@ -89,10 +133,21 @@ export function createVoiceAgent(options = {}) {
         }
         if (message.type === 'UserStartedSpeaking' || message.type === 'ConversationText') lastActivity = Date.now();
         if (message.type === 'FunctionCallRequest') {
-          for (const call of (message.functions || []).slice(0, 8)) {
-            let result; try { result = runFunction(call.name, call.arguments, ticket.context); } catch { result = { error: 'Invalid function arguments or unavailable data. Do not invent a result.' }; }
-            upstream.send(JSON.stringify({ type: 'FunctionCallResponse', id: call.id, name: call.name, content: JSON.stringify(result) }));
-          }
+          if (ticket.pendingTools >= 2) { fail('Too many simultaneous chart requests. Please reconnect.'); return; }
+          const version = ticket.version;
+          ticket.pendingTools++;
+          try {
+            for (const call of (message.functions || []).slice(0, 8)) {
+              if (cleaned) break;
+              let result;
+              try {
+                if (ticket.version !== version) result = { error: 'The selected date or profile changed. Request the detail again using the latest context.' };
+                else if (++ticket.toolCalls > 24) result = { error: 'This conversation has reached its tool-call limit. Discuss theory or start a new conversation.' };
+                else result = await runFunction(call.name, call.arguments, ticket.context);
+              } catch { result = { error: 'Invalid function arguments or unavailable data. Do not invent a result.' }; }
+              if (!cleaned && upstream.readyState === WebSocket.OPEN) upstream.send(JSON.stringify({ type: 'FunctionCallResponse', id: call.id, name: call.name, content: JSON.stringify(ticket.version === version ? result : { error: 'Context changed during this request. Retrieve facts again using the latest context.' }) }));
+            }
+          } finally { ticket.pendingTools--; }
           return;
         }
         if (message.type === 'Error') { fail('The voice service could not complete this conversation. Please try again.'); return; }

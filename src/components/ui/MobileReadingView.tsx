@@ -1,4 +1,5 @@
 "use client";
+import AstrologyStatus from "./AstrologyStatus";
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
@@ -156,6 +157,8 @@ export default function MobileReadingView({
                   <p className="mt-3 text-base leading-7 text-white/90">{reading.summary}</p>
                 </section>
 
+                <AstrologyStatus metadata={reading.meta?.astrology} />
+
                 <div className="sticky top-[calc(env(safe-area-inset-top)+4.65rem)] z-[9] -mx-1 rounded-2xl bg-[var(--app-bg)]/90 p-1 backdrop-blur-xl">
                   <div className="grid grid-cols-4 rounded-2xl bg-black/30 p-1">
                     {TIMEFRAMES.map((timeframe) => (
@@ -279,7 +282,7 @@ function MobilePlanetInsight({
           </div>
           {positionLabel && (
             <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
-              {positionLabel}
+              Visual heliocentric: {positionLabel}
             </p>
           )}
         </div>

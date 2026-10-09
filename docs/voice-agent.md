@@ -24,13 +24,16 @@ starts with fresh context, without requiring a reading.
 `server/agent-context.mjs` contains the editable `AGENT_PROMPT`, `buildPrompt`,
 model configuration and tool schemas. This is separate from the written prompt.
 Every opening calculates the actual current sky and the selected-date sky.
-Selected dates use noon UTC. Context includes a reading summary/metadata when
+Selected dates use noon Europe/London. Context includes a reading summary/metadata when
 available and the selected planet. The full reading is retrieved by `get_reading`.
 No default form values are assumed to be confirmed personal information.
 
 - `get_sky`: current instant or a validated date between 1900 and 2100.
   Geocentric tropical longitudes for Sun, Moon and seven planets (excluding Earth), plus major
   transit-to-transit aspects within a six-degree orb.
+- `get_natal_chart`: server-owned computed natal facts and confidence, if available.
+- `get_transits`: at most four selected-date horizons (+0/+3/+7/+30), sharing the five-call total Astrologer allowance with written readings; caches are reused.
+- `get_moon_phase`: local phase/illumination calculation, without a hosted call.
 - `get_reading`: existing sections, planetary interpretations and metadata;
   explicitly unavailable when no reading exists.
 
@@ -41,8 +44,7 @@ User-provided reading text is labeled untrusted data, not instructions.
 
 The existing 3D solar system is heliocentric. Its positions are **not** used as
 geocentric astrological facts. The agent explains that distinction when needed.
-Birthplace timezone/coordinates are not resolved; no natal houses, ascendant,
-retrograde status or natal-to-transit aspects are invented.
+Explicitly confirmed birthplace coordinates and IANA timezone support the hosted Astrologer natal/transit calculation. London is the confirmed-default option; other places require explicit coordinates/timezone. Unknown times and unavailable hosted results remain limited. No natal houses, Ascendant, retrograde flags or natal-to-transit aspects are invented. See [integration setup](./astrologer-integration.md).
 
 ## Transport and Limits
 
