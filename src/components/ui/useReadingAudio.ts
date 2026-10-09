@@ -121,7 +121,7 @@ export function useReadingAudio(reading: ReadingPayload | null) {
     setRate(value);
   }, []);
 
-  return { stream, generateDownload: () => togglePlayback(false), available: Boolean(reading?.audioScript && reading.audioAuthorization), generating, ready,
+  return { stream, pause: () => audioRef.current?.pause(), generateDownload: () => togglePlayback(false), available: Boolean(reading?.audioScript && reading.audioAuthorization), generating, ready,
     playing, currentTime, duration, rate, error, notice, togglePlayback, seek, changeRate,
     downloadUrl: ready ? urlRef.current : null };
 }

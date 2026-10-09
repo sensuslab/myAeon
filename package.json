@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.mjs",
     "lint": "next lint",
-    "test:audio": "node --test tests/reading-audio.test.cjs tests/reading-stream.test.mjs"
+    "test:audio": "node --test tests/reading-audio.test.cjs tests/reading-stream.test.mjs",
+    "test:agent": "node --test tests/voice-agent.test.mjs"
   },
   "dependencies": {
+    "@deepgram/agents": "^0.1.2",
+    "@deepgram/ui": "^0.1.6",
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
     "astronomy-engine": "^2.1.19",

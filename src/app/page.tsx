@@ -28,6 +28,7 @@ const SceneCanvas = dynamic(() => import("@/components/scene/SceneCanvas"), {
   ssr: false,
   loading: () => null,
 });
+const VoiceExplorer = dynamic(() => import("@/components/ui/VoiceExplorer"), { ssr: false });
 
 function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
@@ -295,6 +296,7 @@ export default function Home() {
       />
 
       <AeonPreloader ready={sceneReady} theme={theme} />
+      <VoiceExplorer reading={reading} viewedDate={skyDate} selectedPlanet={selectedPlanet?.id ?? null} onStart={() => { audio.stream.stop(); audio.pause(); }} />
     </main>
   );
 }
