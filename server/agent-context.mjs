@@ -1,5 +1,8 @@
-import { Body, GeoVector, Ecliptic } from 'astronomy-engine';
+import { createRequire } from 'node:module';
 import { z } from 'zod';
+
+// The package's ESM entry lacks a module declaration on older Node 20 runtimes.
+const { Body, GeoVector, Ecliptic } = createRequire(import.meta.url)('astronomy-engine');
 
 const text = z.string().max(4000);
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
