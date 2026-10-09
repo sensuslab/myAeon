@@ -20,13 +20,14 @@ export type BirthFormProps = {
   input: BirthInput; onChange: (input: BirthInput) => void; onSubmit: (input: BirthInput, sunSign: ZodiacSign) => void;
   onConfirm: (input: BirthInput) => void; loading: boolean; confirming: boolean; profileConfirmed: boolean;
   status: string | null; usage: AstrologyUsage | null; enrichmentEnabled: boolean;
+  formId?: string; hideSubmit?: boolean;
 };
-export default function BirthDetailsForm({ input, onChange, onSubmit, onConfirm, loading, confirming, profileConfirmed, status, usage, enrichmentEnabled }: BirthFormProps) {
+export default function BirthDetailsForm({ input, onChange, onSubmit, onConfirm, loading, confirming, profileConfirmed, status, usage, enrichmentEnabled, formId, hideSubmit }: BirthFormProps) {
   const update = (patch: Partial<BirthInput>) => onChange({ ...input, ...patch });
   const location = (patch: Partial<ChartLocation>) => update({ location: { ...input.location, ...patch } });
   const london = input.location.city === 'London' && input.location.nation === 'GB' && input.location.latitude === 51.5074 && input.location.longitude === -0.1278 && input.location.timezone === 'Europe/London';
   const busy = loading || confirming;
-  return <form className="space-y-3 text-[var(--app-text)]" onSubmit={event => { event.preventDefault(); if (input.birthDate) onSubmit(input, getSunSign(new Date(`${input.birthDate}T12:00:00Z`))); }}>
+  return <form id={formId} className="space-y-3 text-[var(--app-text)]" onSubmit={event => { event.preventDefault(); if (input.birthDate) onSubmit(input, getSunSign(new Date(`${input.birthDate}T12:00:00Z`))); }}>
     <Field label="Name (optional)"><input className="birth-input" maxLength={80} value={input.name} onChange={e => update({ name: e.target.value })} placeholder="Your name" /></Field>
     <Field label="Birth date"><input className="birth-input" type="date" min="1900-01-01" max="2100-12-31" required value={input.birthDate} onChange={e => update({ birthDate: e.target.value })} /></Field>
     <Field label="How certain is your birth time?"><select className="birth-input" value={input.timeConfidence} onChange={e => update({ timeConfidence: e.target.value as BirthInput['timeConfidence'] })}><option value="unknown">Unknown</option><option value="known">Known / recorded</option><option value="estimated">Estimated</option></select></Field>
@@ -52,7 +53,7 @@ export default function BirthDetailsForm({ input, onChange, onSubmit, onConfirm,
     {!enrichmentEnabled && <p className="text-xs leading-5 opacity-70">Hosted chart enrichment is unavailable. Local sky exploration and limited readings remain available.</p>}
     <button type="button" disabled={busy || !input.confirmed || !input.birthDate || (input.timeConfidence !== 'unknown' && !input.birthTime)} onClick={event => { if (event.currentTarget.form?.reportValidity()) onConfirm(input); }} className="min-h-11 w-full rounded-lg border border-[var(--panel-border)] px-3 text-sm disabled:opacity-40">{confirming ? 'Confirming…' : profileConfirmed ? 'Birth details confirmed for Zeus' : 'Confirm birth details for Zeus'}</button>
     {status && <p role="status" className="text-xs leading-5 text-astral-cyan">{status}</p>}
-    <button type="submit" disabled={busy || !input.birthDate} className="min-h-12 w-full rounded-lg bg-gradient-to-r from-astral-gold to-astral-bronze px-3 text-sm font-semibold text-astral-deep disabled:opacity-40">{loading ? 'Reading the stars…' : 'Cast my reading'}</button>
+    {!hideSubmit && <button type="submit" disabled={busy || !input.birthDate} className="min-h-12 w-full rounded-lg bg-[#d4a437] px-3 text-sm font-semibold text-[#15120b] disabled:opacity-60">{loading ? 'Reading the stars…' : 'Cast my reading'}</button>}
     <style jsx>{`.birth-input { width:100%; min-height:44px; background:var(--field-bg); border:1px solid var(--field-border); color:var(--field-text); padding:0.5rem 0.65rem; border-radius:0.5rem; font-size:0.9rem; } .birth-input:focus { outline:2px solid var(--astral-gold); outline-offset:2px; }`}</style>
   </form>;
 }
