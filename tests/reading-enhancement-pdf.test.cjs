@@ -354,6 +354,31 @@ test('valid model birth-chart prose is bound to the verified server context, nev
   assert.equal(reading.sections.length, 16); assert.ok(!reading.sections.some(section => section.timeframe === 'Year'));
 });
 
+test('aspect evidence keeps natal and transiting roles, exact types, orbs and dated snapshots distinct', async t => {
+  const f = await fixture(t), context = await f.prepare();
+  context.natal.aspects = [{ first: 'Sun', second: 'Saturn', aspect: 'trine', orb: 1.2 }];
+  context.snapshots[0].aspects = [{ first: 'Venus', second: 'Mars', aspect: 'square', orb: 3.45 }];
+  context.snapshots[0].natalAspects = [
+    { natal: 'Uranus', transit: 'Saturn', aspect: 'square', orb: 1.375 },
+    { natal: 'Moon', transit: 'Pluto', aspect: 'opposition', orb: 2.018 },
+  ];
+  const evidence = enhancement.aspectEvidence(context);
+  assert.deepEqual(evidence.natal, ['natal Sun trine natal Saturn (orb 1.200 degrees).']);
+  assert.deepEqual(evidence.datedSnapshots[0].sky, ['current-sky Venus square current-sky Mars (orb 3.450 degrees).']);
+  assert.deepEqual(evidence.datedSnapshots[0].transitToNatal, [
+    'Transiting Saturn square natal Uranus (orb 1.375 degrees).',
+    'Transiting Pluto opposition natal Moon (orb 2.018 degrees).',
+  ]);
+  assert.equal(evidence.datedSnapshots[0].date, context.selectedDate);
+  assert.equal(evidence.datedSnapshots.length, 4);
+  assert.ok(!JSON.stringify(evidence).includes('Pluto conjunction natal Sun'));
+  const prompt = enhancement.enhancementPrompt(context, undefined, f.profile);
+  const encoded = prompt.split('VERIFIED ASPECT STATEMENTS (the complete allowed named relationships, computed within six degrees): ')[1].split('\n')[0];
+  assert.deepEqual(JSON.parse(encoded), evidence);
+  assert.ok(enhancement.ENHANCEMENT_SYSTEM_PROMPT.includes('Never derive an aspect from sign names'));
+  assert.ok(enhancement.ENHANCEMENT_SYSTEM_PROMPT.includes('swap a square for a conjunction/opposition'));
+});
+
 test('unknown time, failed natal calculation, wrong owner, mismatched dates and injected facts never call the model', async t => {
   const f = await fixture(t), context = await f.prepare();
   const stale = priorReading(context, f.profile); stale.meta.readingDate = '2026-10-10';

@@ -38,6 +38,9 @@ duplicating its response examples or narration request. It adds:
 
 - Natal placements, houses/angles for known time, computed aspects and orbs.
 - Dated transit-to-natal relationships over all four horizons.
+- An explicit computed aspect-statement index, with natal/current-sky/transiting
+  roles and exact orbs kept separate. The model is instructed to use only these
+  named relationships and not derive aspects from sign names.
 - Bounded Kerykeion semantic XML alongside validated typed facts.
 - The existing reading as untrusted continuity text, never computation evidence.
 - An explicit prohibition on guessing from images, inventing missing facts or

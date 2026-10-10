@@ -10,6 +10,6 @@ export type AstrologyContext = {
   selectedDate: string; targetTimezone: string; confidence: string; limitations: string[]; usage: AstrologyUsage | null;
   charts?: AstrologyCharts; chartContext?: string; engine?: AstrologyEngine;
   natal: { planets: ChartPoint[]; angles: ChartPoint[]; houses: Array<ChartPoint & { number: number }>; aspects: ChartAspect[]; at: string; source: string } | null;
-  snapshots: Array<{ label: string; date: string; at: string; source: string; planets: ChartPoint[]; aspects: unknown[]; natalAspects: ChartAspect[]; moon: { at: string; source: string; angle: number; illumination: number; phaseName: string } }>;
+  snapshots: Array<{ label: string; date: string; at: string; source: string; planets: ChartPoint[]; aspects: ChartAspect[]; natalAspects: ChartAspect[]; moon: { at: string; source: string; angle: number; illumination: number; phaseName: string } }>;
 };
 export type AstrologyMetadata = Pick<AstrologyContext, 'source' | 'confidence' | 'computedAt' | 'targetTimezone' | 'limitations' | 'usage' | 'engine'> & { contextId?: string; frame: string; natalSummary?: ChartPoint[] };
