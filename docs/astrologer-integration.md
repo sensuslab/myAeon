@@ -1,5 +1,10 @@
 # Astrologer v6 integration
 
+> Historical record, superseded on 10 October 2026. The active implementation
+> uses the self-hosted Kerykeion core without hosted chart calls or generation
+> quotas. Do not apply the old configuration below to the current release.
+> See [the current implementation plan](./kerykeion-core-plan.md) and README.
+
 Implemented from `docs/astrologer-integration-plan.md`. The hosted provider is opt-in. Live subscription/schema validation remains a deployment check: no real API key was supplied during development, and all provider verification used synthetic data.
 
 ## Enable on Railway

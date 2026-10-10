@@ -57,8 +57,11 @@ the same complete response shape.
 
 Chart interpretation uses a forced `emit_chart_reading` function call on the
 provider's strict-schema endpoint. The function is only an output contract; it
-does not execute tools or access external data. Server validation still enforces
-the sixteen unique domain/timeframe pairs, eight planet IDs and text bounds.
+does not execute tools or access external data. The internal response uses fixed
+timeframe/domain, planet and chart-topic object keys, which can be enforced without
+unsupported array-size constraints. The server converts them to the established
+public reading arrays and validates all sixteen domain/timeframe pairs, eight
+planet IDs and text bounds. Missing prose is rejected, never manufactured.
 The established `jsonrepair` parser can recover syntax errors such as an extra
 closing delimiter. It does not supply interpretation prose; all required fields
 and section pairs still have to pass validation. Truncated completions and

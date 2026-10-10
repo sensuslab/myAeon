@@ -196,7 +196,7 @@ test('standalone valid interpretation returns a compatible full reading without 
   assert.equal(reading.meta.birthTime, '10:15');
 });
 
-test('chart interpretation uses a forced strict schema with flat sections and server-built narration', async t => {
+test('chart interpretation uses fixed-key strict schema and server-built narration', async t => {
   const f = await fixture(t), context = await f.prepare();
   process.env.DEEPSEEK_API_BASE = 'https://api.deepseek.com/v1';
   const response = await enhanceRoute.POST(request('/api/reading/enhance', { contextId: context.id }, f.identity.cookie));
@@ -209,7 +209,12 @@ test('chart interpretation uses a forced strict schema with flat sections and se
   assert.equal(f.lastPrompt.thinking.type, 'disabled');
   assert.equal(f.lastPrompt.temperature, 0.35);
   assert.equal(f.lastPrompt.response_format, undefined);
-  assert.equal(tool.function.parameters.properties.sections.items.type, 'object');
+  const shape = tool.function.parameters.properties;
+  assert.deepEqual(Object.keys(shape.sections.properties), ['Today', '3 Days', 'Week', 'Month']);
+  assert.deepEqual(Object.keys(shape.sections.properties.Today.properties), ['Love & Connection', 'Purpose & Work', 'Body & Energy', 'Inner World']);
+  assert.equal(shape.sections.properties.Today.properties['Inner World'].type, 'string');
+  assert.deepEqual(Object.keys(shape.planetInsights.properties), ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']);
+  assert.deepEqual(Object.keys(shape.birthChart.properties.sections.properties), ['Core Pattern', 'Relationships and Direction', 'Meeting the Current Sky']);
   assert.equal(tool.function.parameters.properties.audioScript, undefined);
   assert.ok(f.lastPrompt.messages[0].content.includes('Do not return audioScript'));
   assert.ok(!f.lastPrompt.messages[0].content.includes('AUDIO-FIRST NARRATION'));
@@ -224,6 +229,35 @@ test('chart interpretation uses a forced strict schema with flat sections and se
   }
   supported(tool.function.parameters);
   assert.ok(reading.audioScript.includes(reading.birthChart.synthesis));
+});
+
+test('fixed-key model output becomes complete public arrays without fabricating missing prose', async t => {
+  const options = {}, f = await fixture(t, options), context = await f.prepare();
+  const valid = modelReading(context);
+  const fixed = {
+    ...valid,
+    sections: Object.fromEntries(['Today', '3 Days', 'Week', 'Month'].map(timeframe => [timeframe,
+      Object.fromEntries(valid.sections.filter(section => section.timeframe === timeframe).map(section => [section.title, section.body])),
+    ])),
+    planetInsights: Object.fromEntries(valid.planetInsights.map(({ id, ...prose }) => [id, prose])),
+    birthChart: { ...valid.birthChart, sections: {
+      'Core Pattern': 'A supplied core reflection.',
+      'Relationships and Direction': 'A supplied relationship reflection.',
+      'Meeting the Current Sky': 'A supplied dated sky reflection.',
+    } },
+  };
+  options.content = JSON.stringify(fixed);
+  const response = await enhanceRoute.POST(request('/api/reading/enhance', { contextId: context.id }, f.identity.cookie));
+  assert.equal(response.status, 200, await response.clone().text());
+  const reading = await response.json();
+  assert.deepEqual(reading.sections, valid.sections);
+  assert.equal(reading.planetInsights.length, 8);
+  assert.deepEqual(reading.birthChart.sections, Object.entries(fixed.birthChart.sections).map(([title, body]) => ({ title, body })));
+  const saved = f.service.getInterpretation(f.identity.id, context.id);
+  delete fixed.sections.Month['Inner World'];
+  options.content = JSON.stringify(fixed);
+  assert.equal((await enhanceRoute.POST(request('/api/reading/enhance', { contextId: context.id }, f.identity.cookie))).status, 502);
+  assert.deepEqual(f.service.getInterpretation(f.identity.id, context.id), saved);
 });
 
 test('truncated or unexpected structured calls never save a chart interpretation', async t => {

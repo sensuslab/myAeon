@@ -5,7 +5,7 @@ import { generatedReading, requestReadingJson, signedReadingAudio } from "@/lib/
 import { privateHeaders, readPrivateJson, requestFailure } from "@/lib/readingRequest";
 import {
   EnhancementInputSchema, ENHANCEMENT_SYSTEM_PROMPT, ENHANCEMENT_RESPONSE_SCHEMA, enhancementPrompt,
-  normalizeBirthChart, requireNatalContext, validatePriorReading, enhancementReadingInput,
+  normalizeBirthChart, normalizeEnhancementOutput, requireNatalContext, validatePriorReading, enhancementReadingInput,
 } from "@/lib/readingEnhancement";
 
 export const runtime = "nodejs";
@@ -26,9 +26,10 @@ export async function POST(req: Request) {
     if (!context || !profile) throw new Error("Missing chart");
     validatePriorReading(input.reading, context, profile);
     const { json, config } = await requestReadingJson(ENHANCEMENT_SYSTEM_PROMPT, enhancementPrompt(context, input.reading, profile), req.signal, ENHANCEMENT_RESPONSE_SCHEMA);
+    const model = normalizeEnhancementOutput(json);
     const sunSign = longitudeToSign(context.natal!.planets.find(point => point.name === "Sun")!.longitude);
-    const birthChart = normalizeBirthChart(json?.birthChart, context);
-    const generated = generatedReading(enhancementReadingInput(json, input.reading), sunSign, context);
+    const birthChart = normalizeBirthChart(model?.birthChart, context);
+    const generated = generatedReading(enhancementReadingInput(model, input.reading), sunSign, context);
     const response = {
       ...generated,
       birthChart,

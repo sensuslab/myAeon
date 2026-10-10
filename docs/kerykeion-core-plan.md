@@ -79,7 +79,7 @@ The implementation uses a single Node 22 / Python 3.12 Docker image, an offline 
 
 Synthetic end-to-end checks verified:
 
-The final regression run passed 83 tests, with its opt-in live endpoint test run separately and passed against the production build. The production build includes TypeScript and lint checks. PDF pages were rendered and visually inspected, including long interpretation pagination and the final synthesis/reflection.
+The final regression run passed 84 tests, with its opt-in live endpoint test run separately and passed against the production build. The production build includes TypeScript and lint checks. PDF pages were rendered and visually inspected, including long interpretation pagination and the final synthesis/reflection.
 
 - Local natal calculation, ten natal bodies, twelve reliable houses and four transit snapshots; an observed chart request completed in about 0.8 seconds.
 - A real initial DeepSeek reading, a separate real chart enhancement, all sixteen reading sections and complete enhanced narration.
@@ -91,7 +91,7 @@ The final regression run passed 83 tests, with its opt-in live endpoint test run
 
 ### Deployment Safety Notes
 
-Live verification revealed that JSON-object mode could produce separate, unkeyed timeframe arrays. Optional chart interpretations therefore use a concise dedicated prompt, a forced strict-schema output function, the established JSON repair parser for delimiter errors, complete-field validation and canonical narration built from accepted text. No missing interpretation prose is invented. Initial sky-reading generation retains its existing request and recovery contract. See [the provider's strict-mode documentation](https://api-docs.deepseek.com/guides/tool_calls/) for supported schema constraints.
+Live verification revealed that JSON-object mode could produce separate, unkeyed timeframe arrays. Optional chart interpretations therefore use a concise dedicated prompt, a forced strict-schema output function, fixed timeframe/domain/planet/topic object keys, the established JSON repair parser for delimiter errors, complete-field validation and canonical narration built from accepted text. The fixed keys avoid unsupported array-count constraints and are converted to the unchanged public arrays. No missing interpretation prose is invented. Initial sky-reading generation retains its existing request and recovery contract. See [the provider's strict-mode documentation](https://api-docs.deepseek.com/guides/tool_calls/) for supported schema constraints.
 
 A prose spot-check also found an incorrect named transit aspect despite correct computation data. The enhancement prompt now includes an explicit aspect-statement index with dated sky/natal/transit roles, exact types and orbs, and instructions to use only those relationships. This improves grounding but is not a guarantee that every AI sentence is factually correct; the calculated chart evidence remains the authoritative record.
 

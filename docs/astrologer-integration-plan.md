@@ -1,6 +1,6 @@
 # Astrologer-API Integration Plan
 
-Status: implementation completed on the development branch. See [Astrologer integration](./astrologer-integration.md) for implemented behavior, configuration and deployment checks. Hosted calls remain opt-in; live subscription validation requires the deployment key. The user-selected allowance is five total attempts per anonymous browser identity, shared across reading and voice. London, UK / Europe/London are the defaults.
+Status: historical, superseded by the [self-hosted Kerykeion plan](./kerykeion-core-plan.md) on 10 October 2026. This document preserves the earlier hosted-service design; its quotas and hosted configuration are no longer active.
 
 ## Product Outcome
 
