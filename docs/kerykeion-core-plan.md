@@ -1,7 +1,7 @@
 # myAeon: Self-Hosted Chart Core
 
 Date: 10 October 2026
-Status: implemented; final production verification and deployment in progress.
+Status: implemented, deployed and verified on Railway; source updates pushed to GitHub.
 
 ## Objectives
 
@@ -95,6 +95,28 @@ Live verification revealed that JSON-object mode could produce separate, unkeyed
 
 A prose spot-check also found an incorrect named transit aspect despite correct computation data. The enhancement prompt now includes an explicit aspect-statement index with dated sky/natal/transit roles, exact types and orbs, and instructions to use only those relationships. This improves grounding but is not a guarantee that every AI sentence is factually correct; the calculated chart evidence remains the authoritative record.
 
+Some live outputs lacked synthesis/reflection at the required chart path. These
+fields now precede the nested topics in the internal contract. Already-generated
+strings at the root or inside the chart-topic object can be recovered by their
+exact field names, but missing prose is still rejected without replacing an
+existing reading. Regression tests cover both recovery and failure preservation.
+
 The existing Next 14 / React 18 stack has upstream dependency advisories requiring a separate framework-major migration. Compatible transitive patches were applied; the unused image-optimizer and Server Actions endpoints are blocked, production unknown WebSocket upgrades are rejected, and the Docker runtime uses a non-root user. These mitigations are not a claim that every dependency advisory is resolved. Keep this deployment private while exploring, and upgrade the framework before broader availability.
 
 Charts no longer incur hosted astrology API charges or chart-generation quotas. Written AI, speech, voice-agent and hosting charges still apply. Queue/concurrency, payload, transport, timeout and cache bounds remain to protect the application process.
+
+## Verified Deployment
+
+- Application: https://aeon-app-production.up.railway.app
+- Source: https://github.com/sensuslab/myAeon
+- Runtime commit: `4771dfe`.
+- Railway deployment: `02526b6f-9f2c-48f6-80ee-5864467e2456`, status `SUCCESS`.
+- Final live synthetic check: Kerykeion 6.0.2 / Swiss Moshier, ten natal bodies,
+  four snapshots, sixteen reading sections and three chart-interpretation topics.
+- Interpretation completed in about 53 seconds in that check; latency is not
+  guaranteed. Signed narration contained 13,385 characters and chart synthesis.
+- Enhanced PDF export, Zeus context preparation and the privacy page all passed.
+- Recorded local birth time remained 10:15 in the synthetic London profile.
+
+The existing Next.js framework advisories and upstream licensing requirements
+above remain considerations before wider availability, not completed remediation.
