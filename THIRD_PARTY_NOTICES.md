@@ -45,6 +45,11 @@ future does not change the license of prior self-hosted deployments.
 
 ## Other Dependencies
 
+Optional chart interpretations use jsonrepair 3.15.0 (ISC license) to recover
+malformed JSON syntax before complete response validation.
+
+- Source and license: https://github.com/josdejong/jsonrepair
+
 Node and Python dependencies retain their respective licenses. The JavaScript
 dependency tree is recorded in package-lock.json; Python dependencies are pinned
 in requirements.txt. No paid Astrologer API code or API credentials are bundled.

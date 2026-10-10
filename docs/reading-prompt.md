@@ -30,10 +30,11 @@ protect the established response contract.
 ## Optional Birth-Chart Interpretation
 
 `src/lib/readingEnhancement.ts` exports `ENHANCEMENT_SYSTEM_PROMPT` and
-`enhancementPrompt`. `src/app/api/reading/enhance/route.ts` resolves an owner-bound
+`enhancementPrompt` and `ENHANCEMENT_RESPONSE_SCHEMA`. `src/app/api/reading/enhance/route.ts` resolves an owner-bound
 chart context and validates the matching birth profile/date before requesting AI.
 
-The enhancement prompt extends the initial system prompt and adds:
+The chart-specific prompt retains the initial interpretation framework, without
+duplicating its response examples or narration request. It adds:
 
 - Natal placements, houses/angles for known time, computed aspects and orbs.
 - Dated transit-to-natal relationships over all four horizons.
@@ -51,6 +52,16 @@ path. Chart graphics and prompt facts originate from the same local calculation.
 Omitting a prior reading creates a standalone personal chart interpretation in
 the same complete response shape.
 
+Chart interpretation uses a forced `emit_chart_reading` function call on the
+provider's strict-schema endpoint. The function is only an output contract; it
+does not execute tools or access external data. Server validation still enforces
+the sixteen unique domain/timeframe pairs, eight planet IDs and text bounds.
+The established `jsonrepair` parser can recover syntax errors such as an extra
+closing delimiter. It does not supply interpretation prose; all required fields
+and section pairs still have to pass validation. Truncated completions and
+incomplete interpretations return a retryable error without replacing a previous
+reading. No generic chart interpretation is saved.
+
 ## Audio And Zeus
 
 `src/lib/readingAudio.ts` defines narration instructions and a complete fallback
@@ -64,8 +75,14 @@ independent of the written-reading model.
 
 ## Model Parameters
 
-Written calls default to `deepseek-v4-pro`, temperature `0.85`, output token limit
-`12288`, JSON-object response format and thinking disabled. Timeout defaults to
+Written calls default to `deepseek-v4-pro`, output token limit `12288` and thinking
+disabled. Initial sky readings retain temperature `0.85`, JSON-object response
+format and model-written narration. Chart interpretations use temperature `0.35` and strict function
+output instead; the server derives their complete narration from accepted text,
+so the model does not need to duplicate the reading in an `audioScript`. Timeout defaults to
 120 seconds and is configurable up to 180 seconds. Provider keys and model
 configuration remain server-side. Change tone and emphasis in the two source
 prompts while retaining the schema, uncertainty and computation constraints.
+
+Strict-schema behavior and supported constraints are documented in
+[DeepSeek's tool-call guide](https://api-docs.deepseek.com/guides/tool_calls/).

@@ -4,7 +4,7 @@ import { longitudeToSign } from "@/lib/zodiac";
 import { generatedReading, requestReadingJson, signedReadingAudio } from "@/lib/readingGeneration";
 import { privateHeaders, readPrivateJson, requestFailure } from "@/lib/readingRequest";
 import {
-  EnhancementInputSchema, ENHANCEMENT_SYSTEM_PROMPT, enhancementPrompt,
+  EnhancementInputSchema, ENHANCEMENT_SYSTEM_PROMPT, ENHANCEMENT_RESPONSE_SCHEMA, enhancementPrompt,
   normalizeBirthChart, requireNatalContext, validatePriorReading, enhancementReadingInput,
 } from "@/lib/readingEnhancement";
 
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     // requireNatalContext checks both nullable server-owned records before use.
     if (!context || !profile) throw new Error("Missing chart");
     validatePriorReading(input.reading, context, profile);
-    const { json, config } = await requestReadingJson(ENHANCEMENT_SYSTEM_PROMPT, enhancementPrompt(context, input.reading, profile), req.signal);
+    const { json, config } = await requestReadingJson(ENHANCEMENT_SYSTEM_PROMPT, enhancementPrompt(context, input.reading, profile), req.signal, ENHANCEMENT_RESPONSE_SCHEMA);
     const sunSign = longitudeToSign(context.natal!.planets.find(point => point.name === "Sun")!.longitude);
     const birthChart = normalizeBirthChart(json?.birthChart, context);
     const generated = generatedReading(enhancementReadingInput(json, input.reading), sunSign, context);

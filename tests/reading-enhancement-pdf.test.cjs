@@ -53,7 +53,7 @@ async function fixture(t, options = {}) {
   const { requestIdentity } = await import('../server/astrology-quota.mjs');
   const { knownProfile, subjectFixture } = await import('./fixtures/astrologer.mjs');
   const originalService = { ...astrology };
-  let workerCalls = 0, modelCalls = 0, lastPrompt;
+  let workerCalls = 0, modelCalls = 0, lastPrompt, lastUrl;
   const service = createAstrologyService({ enabled: true, worker: async job => {
     workerCalls++;
     if (options.workerFailure) throw new Error('private runtime details');
@@ -69,10 +69,10 @@ async function fixture(t, options = {}) {
   const { profileId } = service.confirm(identity.id, profile);
   global.fetch = async (url, args) => {
     assert.ok(String(url).includes('api.deepseek.com'), 'neither chart nor voice provider is requested');
-    modelCalls++; lastPrompt = JSON.parse(args.body);
+    modelCalls++; lastPrompt = JSON.parse(args.body); lastUrl = String(url);
     if (options.modelFailure) throw new Error('private service credential details');
     const context = JSON.parse(lastPrompt.messages[1].content.split('VALIDATED COMPUTATION DATA: ')[1].split('\n')[0]);
-    return Response.json({ choices: [{ message: { content: options.content ?? JSON.stringify(modelReading(context)) } }] });
+    return Response.json({ choices: [{ finish_reason: options.finishReason ?? "tool_calls", message: { tool_calls: [{ type: "function", function: { name: options.toolName ?? "emit_chart_reading", arguments: options.content ?? JSON.stringify(modelReading(context)) } }] } }] });
   };
   t.after(() => { Object.assign(astrology, originalService); process.env = previousEnv; global.fetch = originalFetch; });
   return { service, identity, profile, profileId,
@@ -82,7 +82,7 @@ async function fixture(t, options = {}) {
       assert.equal(response.headers.get('cache-control'), 'private, no-store');
       return (await response.json()).context;
     },
-    get workerCalls() { return workerCalls; }, get modelCalls() { return modelCalls; }, get lastPrompt() { return lastPrompt; },
+    get workerCalls() { return workerCalls; }, get modelCalls() { return modelCalls; }, get lastPrompt() { return lastPrompt; }, get lastUrl() { return lastUrl; },
   };
 }
 
@@ -194,6 +194,70 @@ test('standalone valid interpretation returns a compatible full reading without 
   assert.ok(!reading.audioScript.includes('undefined'));
   assert.ok(!reading.summary.includes('fallback'));
   assert.equal(reading.meta.birthTime, '10:15');
+});
+
+test('chart interpretation uses a forced strict schema with flat sections and server-built narration', async t => {
+  const f = await fixture(t), context = await f.prepare();
+  process.env.DEEPSEEK_API_BASE = 'https://api.deepseek.com/v1';
+  const response = await enhanceRoute.POST(request('/api/reading/enhance', { contextId: context.id }, f.identity.cookie));
+  assert.equal(response.status, 200, await response.clone().text());
+  const reading = await response.json(), tool = f.lastPrompt.tools[0];
+  assert.equal(f.lastUrl, 'https://api.deepseek.com/beta/chat/completions');
+  assert.equal(reading.meta.endpointMode, 'openai-chat-strict');
+  assert.equal(tool.function.strict, true);
+  assert.deepEqual(f.lastPrompt.tool_choice, { type: 'function', function: { name: 'emit_chart_reading' } });
+  assert.equal(f.lastPrompt.thinking.type, 'disabled');
+  assert.equal(f.lastPrompt.temperature, 0.35);
+  assert.equal(f.lastPrompt.response_format, undefined);
+  assert.equal(tool.function.parameters.properties.sections.items.type, 'object');
+  assert.equal(tool.function.parameters.properties.audioScript, undefined);
+  assert.ok(f.lastPrompt.messages[0].content.includes('Do not return audioScript'));
+  assert.ok(!f.lastPrompt.messages[0].content.includes('AUDIO-FIRST NARRATION'));
+  function supported(schema) {
+    if (schema.type === 'object') {
+      assert.equal(schema.additionalProperties, false);
+      assert.deepEqual(schema.required, Object.keys(schema.properties));
+      Object.values(schema.properties).forEach(supported);
+    }
+    if (schema.type === 'array') supported(schema.items);
+    for (const key of ['minItems', 'maxItems', 'minLength', 'maxLength']) assert.equal(schema[key], undefined);
+  }
+  supported(tool.function.parameters);
+  assert.ok(reading.audioScript.includes(reading.birthChart.synthesis));
+});
+
+test('truncated or unexpected structured calls never save a chart interpretation', async t => {
+  const options = { finishReason: 'length' }, f = await fixture(t, options), context = await f.prepare();
+  const truncated = await enhanceRoute.POST(request('/api/reading/enhance', { contextId: context.id }, f.identity.cookie));
+  assert.equal(truncated.status, 502);
+  assert.equal(f.service.getInterpretation(f.identity.id, context.id), null);
+  delete options.finishReason; options.toolName = 'unexpected_action';
+  const wrongTool = await enhanceRoute.POST(request('/api/reading/enhance', { contextId: context.id }, f.identity.cookie));
+  assert.equal(wrongTool.status, 502);
+  assert.equal(f.service.getInterpretation(f.identity.id, context.id), null);
+});
+
+test('syntax repair retains the complete reading and rich chart prose without creating missing sections', async t => {
+  const options = {}, f = await fixture(t, options), context = await f.prepare();
+  const valid = modelReading(context);
+  valid.birthChart.sections[0].body = 'A detailed but bounded chart reflection. '.repeat(60).trim();
+  const json = JSON.stringify(valid);
+  options.content = `${json.slice(0, -1)}]}`;
+  const response = await enhanceRoute.POST(request('/api/reading/enhance', { contextId: context.id }, f.identity.cookie));
+  assert.equal(response.status, 200, await response.clone().text());
+  const reading = await response.json();
+  assert.equal(reading.sections.length, 16);
+  assert.equal(reading.planetInsights.length, 8);
+  assert.deepEqual(reading.birthChart, valid.birthChart);
+  assert.ok(reading.audioScript.includes(valid.birthChart.sections[0].body.trim()));
+  const saved = f.service.getInterpretation(f.identity.id, context.id);
+  const incomplete = { ...valid, birthChart: { ...valid.birthChart } };
+  delete incomplete.birthChart.synthesis;
+  const broken = JSON.stringify(incomplete);
+  options.content = `${broken.slice(0, -1)}]}`;
+  const failure = await enhanceRoute.POST(request('/api/reading/enhance', { contextId: context.id }, f.identity.cookie));
+  assert.equal(failure.status, 502);
+  assert.deepEqual(f.service.getInterpretation(f.identity.id, context.id), saved);
 });
 
 test('malformed enhancements fail privately without overwriting a saved interpretation or returning fallback success', async t => {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { jsonrepair } from "jsonrepair";
 import { AUDIO_SCRIPT_PROMPT, resolveAudioScript } from "@/lib/readingAudio";
 import { authorizeAudio } from "@/lib/deepgramAudio";
 import {
@@ -365,8 +366,11 @@ export function readingModelConfig() {
   };
 }
 
-export async function requestReadingJson(system: string, prompt: string, signal?: AbortSignal) {
-  const config = readingModelConfig();
+export async function requestReadingJson(system: string, prompt: string, signal?: AbortSignal, outputSchema?: Record<string, unknown>) {
+  const baseConfig = readingModelConfig();
+  const endpoint = new URL(baseConfig.url);
+  if (outputSchema) endpoint.pathname = endpoint.pathname.replace(/\/(?:v1\/|beta\/)?chat\/completions$/, "/beta/chat/completions");
+  const config = { ...baseConfig, url: endpoint.toString(), mode: outputSchema ? "openai-chat-strict" : baseConfig.mode };
   if (!config.configured) throw new ReadingGenerationError("Readings are not configured yet. Please try again later.", 503);
   let upstream: Response;
   try {
@@ -376,8 +380,12 @@ export async function requestReadingJson(system: string, prompt: string, signal?
       body: JSON.stringify({
         model: config.model,
         messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
-        temperature: 0.85, max_tokens: COMPLETION_TOKEN_LIMIT,
-        response_format: { type: "json_object" }, thinking: { type: "disabled" }, stream: false,
+        temperature: outputSchema ? 0.35 : 0.85, max_tokens: COMPLETION_TOKEN_LIMIT,
+        ...(outputSchema ? {
+          tools: [{ type: "function", function: { name: "emit_chart_reading", description: "Return the complete chart-aware reading as structured data. This function executes no external action.", strict: true, parameters: outputSchema } }],
+          tool_choice: { type: "function", function: { name: "emit_chart_reading" } },
+        } : { response_format: { type: "json_object" } }),
+        thinking: { type: "disabled" }, stream: false,
       }),
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]) : AbortSignal.timeout(config.timeoutMs),
     });
@@ -388,10 +396,21 @@ export async function requestReadingJson(system: string, prompt: string, signal?
   if (!upstream.ok) throw new ReadingGenerationError("Reading generation is temporarily unavailable. Please try again.");
   const data = await upstream.json().catch(() => null);
   const message = data?.choices?.[0]?.message;
-  const content = normalizeAssistantContent(message?.content)
+  if (outputSchema && data?.choices?.[0]?.finish_reason === "length") throw new ReadingGenerationError("The chart interpretation response was cut short. Your existing reading has not changed. Please retry.");
+  const call = outputSchema && message?.tool_calls?.length === 1 ? message.tool_calls[0] : null;
+  const content = outputSchema ? (call?.type === "function" && call.function?.name === "emit_chart_reading" ? normalizeAssistantContent(call.function.arguments) : "") : normalizeAssistantContent(message?.content)
     || normalizeAssistantContent(message?.reasoning_content)
     || normalizeAssistantContent(data?.choices?.[0]?.text);
   if (!content) throw new ReadingGenerationError("The reading response was empty. Please try again.");
+  if (outputSchema) {
+    if (content.length > 128_000) throw new ReadingGenerationError("The chart interpretation response was too large. Please retry.");
+    try { return { json: JSON.parse(content), config }; }
+    catch {
+      // Repair syntax only. The route still requires every reading and chart field.
+      try { return { json: JSON.parse(jsonrepair(content)), config }; }
+      catch { throw new ReadingGenerationError("The chart interpretation response could not be parsed. Your existing reading has not changed. Please retry."); }
+    }
+  }
   return { json: parseModelJson(content), config };
 }
 
