@@ -8,8 +8,10 @@ import type { PlanetVisual, ZodiacSign } from "@/lib/zodiac";
 import type { PlanetInsight, ReadingPayload } from "./types";
 import ReadingAudioPlayer from "./ReadingAudioPlayer";
 import type { ReadingAudioState } from "./useReadingAudio";
+import BirthChartReading from "./BirthChartReading";
+import { publicMessage, type ChartEnhancementProps } from "./chartPresentation";
 
-type Props = {
+type Props = ChartEnhancementProps & {
   open: boolean;
   reading: ReadingPayload | null;
   audio: ReadingAudioState;
@@ -53,6 +55,7 @@ export default function MobileReadingView({
   onDownloadPdf,
   onClearSelectedPlanet,
   onOpenTour,
+  ...chartEnhancement
 }: Props) {
   const [tf, setTf] = useState<Timeframe>("Today");
   const selectedInsight = selectedPlanet
@@ -132,7 +135,7 @@ export default function MobileReadingView({
             {error && !loading && (
               <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
                 <p className="text-sm font-semibold text-red-300">The stars are obscured</p>
-                <p className="mt-2 text-sm leading-relaxed text-white/80">{error}</p>
+                <p className="mt-2 text-sm leading-relaxed text-white/80">{publicMessage(error, "Could not cast your reading. Please try again.")}</p>
               </div>
             )}
 
@@ -158,6 +161,7 @@ export default function MobileReadingView({
                 </section>
 
                 <AstrologyStatus metadata={reading.meta?.astrology} />
+                <BirthChartReading reading={reading} {...chartEnhancement} />
 
                 <div className="sticky top-[calc(env(safe-area-inset-top)+4.65rem)] z-[9] -mx-1 rounded-2xl bg-[var(--app-bg)]/90 p-1 backdrop-blur-xl">
                   <div className="grid grid-cols-4 rounded-2xl bg-black/30 p-1">
@@ -217,10 +221,9 @@ export default function MobileReadingView({
                   </section>
                 )}
 
-                {reading.meta?.model && (
+                {reading.meta?.readingDate && (
                   <p className="pb-2 text-center text-[10px] text-white/30">
-                    Rendered by {reading.meta.model}
-                    {reading.meta.readingDate ? ` / Sky date ${reading.meta.readingDate}` : ""}
+                    AI-generated reading / Sky date {reading.meta.readingDate}
                   </p>
                 )}
               </>

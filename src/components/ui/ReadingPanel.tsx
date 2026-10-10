@@ -7,10 +7,12 @@ import type { PlanetVisual, ZodiacSign } from "@/lib/zodiac";
 import type { PlanetInsight, ReadingPayload } from "./types";
 import ReadingAudioPlayer from "./ReadingAudioPlayer";
 import type { ReadingAudioState } from "./useReadingAudio";
+import BirthChartReading from "./BirthChartReading";
+import { publicMessage, type ChartEnhancementProps } from "./chartPresentation";
 
 export type { ReadingPayload };
 
-type Props = {
+type Props = ChartEnhancementProps & {
   reading: ReadingPayload | null;
   audio: ReadingAudioState;
   sign: ZodiacSign | null;
@@ -50,6 +52,7 @@ export default function ReadingPanel({
   selectedPlanetDegree,
   onDownloadPdf,
   onClearSelectedPlanet,
+  ...chartEnhancement
 }: Props) {
   const [tf, setTf] = useState<Timeframe>("Today");
   const selectedInsight = selectedPlanet
@@ -61,7 +64,7 @@ export default function ReadingPanel({
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.6 }}
-      className="fixed top-20 right-4 bottom-24 z-20 w-96 max-w-[calc(100vw-2rem)] pointer-events-none max-md:top-auto max-md:left-3 max-md:right-3 max-md:bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] max-md:w-auto max-md:max-w-none"
+      className="reading-panel fixed top-20 right-4 bottom-24 z-20 w-96 max-w-[calc(100vw-2rem)] pointer-events-none max-md:top-auto max-md:left-3 max-md:right-3 max-md:bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] max-md:w-auto max-md:max-w-none"
     >
       <div className="glass-strong h-full overflow-y-auto rounded-2xl p-5 pointer-events-auto scrollbar-hide max-md:max-h-[31svh] max-md:rounded-xl max-md:p-4">
         {/* Header */}
@@ -137,7 +140,7 @@ export default function ReadingPanel({
             <h3 className="font-semibold text-red-300 text-sm mb-2">
               The stars are obscured
             </h3>
-            <p className="text-xs text-white/80">{error}</p>
+            <p className="text-xs text-white/80">{publicMessage(error, "Could not cast your reading. Please try again.")}</p>
           </div>
         )}
 
@@ -154,6 +157,7 @@ export default function ReadingPanel({
             </div>
 
             <AstrologyStatus metadata={reading.meta?.astrology} />
+            <BirthChartReading reading={reading} {...chartEnhancement} />
 
             {/* Timeframe tabs */}
             <div className="flex gap-1 p-1 rounded-xl bg-black/30">
@@ -217,10 +221,9 @@ export default function ReadingPanel({
               </div>
             )}
 
-            {reading.meta?.model && (
+            {reading.meta?.readingDate && (
               <p className="text-[9px] text-white/30 text-center pt-1">
-                Rendered by {reading.meta.model}
-                {reading.meta.readingDate ? ` · Sky date ${reading.meta.readingDate}` : ""}
+                AI-generated reading · Sky date {reading.meta.readingDate}
               </p>
             )}
           </div>

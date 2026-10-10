@@ -1,6 +1,7 @@
 "use client";
 import { getSunSign, type ZodiacSign } from '@/lib/zodiac';
 import type { AstrologyUsage, BirthProfile, ChartLocation } from '@/lib/astrologyTypes';
+import { publicMessage } from './chartPresentation';
 
 export type BirthInput = {
   name: string; birthDate: string; birthTime: string; timeConfidence: 'known' | 'estimated' | 'unknown';
@@ -22,7 +23,7 @@ export type BirthFormProps = {
   status: string | null; usage: AstrologyUsage | null; enrichmentEnabled: boolean;
   formId?: string; hideSubmit?: boolean;
 };
-export default function BirthDetailsForm({ input, onChange, onSubmit, onConfirm, loading, confirming, profileConfirmed, status, usage, enrichmentEnabled, formId, hideSubmit }: BirthFormProps) {
+export default function BirthDetailsForm({ input, onChange, onSubmit, onConfirm, loading, confirming, profileConfirmed, status, formId, hideSubmit }: BirthFormProps) {
   const update = (patch: Partial<BirthInput>) => onChange({ ...input, ...patch });
   const location = (patch: Partial<ChartLocation>) => update({ location: { ...input.location, ...patch } });
   const london = input.location.city === 'London' && input.location.nation === 'GB' && input.location.latitude === 51.5074 && input.location.longitude === -0.1278 && input.location.timezone === 'Europe/London';
@@ -46,14 +47,12 @@ export default function BirthDetailsForm({ input, onChange, onSubmit, onConfirm,
       </div>
       <Field label="IANA birth timezone"><input className="birth-input" required maxLength={80} placeholder="Europe/London" value={input.location.timezone} onChange={e => location({ timezone: e.target.value })} /></Field>
     </div>}
-    <p className="text-xs leading-5 opacity-70">Sky snapshots use London, UK · Europe/London. {input.timeConfidence === 'unknown' ? 'Unknown birth time gives a limited reading without natal Moon, Ascendant, houses or exact natal aspects.' : input.timeConfidence === 'estimated' ? 'Estimated birth time gives approximate placements without houses or angles.' : 'Confirmed local time enables a calculated natal chart when enrichment is available.'}</p>
+    <p className="text-xs leading-5 opacity-70">Sky snapshots use London, UK · Europe/London. {input.timeConfidence === 'unknown' ? 'Unknown birth time gives a limited reading, without a full wheel, natal Moon, Ascendant, houses or exact natal aspects.' : input.timeConfidence === 'estimated' ? 'Estimated birth time gives approximate placements without houses, angles or a full wheel. A recorded time is needed for the birth chart view.' : 'Confirmed, recorded local time enables a calculated birth chart.'}</p>
     <Field label="Sky date"><input className="birth-input" type="date" min="1900-01-01" max="2100-12-01" required value={input.readingDate} onChange={e => update({ readingDate: e.target.value })} /></Field>
-    <label className="flex items-start gap-3 rounded-lg border border-[var(--panel-border)] p-3 text-xs leading-5"><input className="mt-1 h-4 w-4 shrink-0 accent-[#d4a437]" type="checkbox" checked={input.confirmed} onChange={e => update({ confirmed: e.target.checked })} /><span>I confirm these birth details and allow Astrologer to process them for chart calculations. Zeus may discuss the resulting facts through Deepgram and its model provider.</span></label>
-    {usage && <p className="text-xs leading-5 text-astral-cyan" aria-live="polite">{usage.remaining} of 5 chart API calls remaining · total allowance. Cached results are free. A full new reading uses up to 5 calls.</p>}
-    {!enrichmentEnabled && <p className="text-xs leading-5 opacity-70">Hosted chart enrichment is unavailable. Local sky exploration and limited readings remain available.</p>}
+    <label className="flex items-start gap-3 rounded-lg border border-[var(--panel-border)] p-3 text-xs leading-5"><input className="mt-1 h-4 w-4 shrink-0 accent-[#d4a437]" type="checkbox" required checked={input.confirmed} onChange={e => update({ confirmed: e.target.checked })} /><span>Use these birth details to calculate my chart and personalise my reading/conversation. <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-astral-cyan underline underline-offset-2">Privacy policy</a></span></label>
     <button type="button" disabled={busy || !input.confirmed || !input.birthDate || (input.timeConfidence !== 'unknown' && !input.birthTime)} onClick={event => { if (event.currentTarget.form?.reportValidity()) onConfirm(input); }} className="min-h-11 w-full rounded-lg border border-[var(--panel-border)] px-3 text-sm disabled:opacity-40">{confirming ? 'Confirming…' : profileConfirmed ? 'Birth details confirmed for Zeus' : 'Confirm birth details for Zeus'}</button>
-    {status && <p role="status" className="text-xs leading-5 text-astral-cyan">{status}</p>}
-    {!hideSubmit && <button type="submit" disabled={busy || !input.birthDate} className="min-h-12 w-full rounded-lg bg-[#d4a437] px-3 text-sm font-semibold text-[#15120b] disabled:opacity-60">{loading ? 'Reading the stars…' : 'Cast my reading'}</button>}
+    {status && <p role="status" className="text-xs leading-5 text-astral-cyan">{publicMessage(status, 'Could not confirm birth details. Please try again.')}</p>}
+    {!hideSubmit && <button type="submit" disabled={busy || !input.birthDate || !input.confirmed} className="min-h-12 w-full rounded-lg bg-[#d4a437] px-3 text-sm font-semibold text-[#15120b] disabled:opacity-60">{loading ? 'Reading the stars…' : 'Cast my reading'}</button>}
     <style jsx>{`.birth-input { width:100%; min-height:44px; background:var(--field-bg); border:1px solid var(--field-border); color:var(--field-text); padding:0.5rem 0.65rem; border-radius:0.5rem; font-size:0.9rem; } .birth-input:focus { outline:2px solid var(--astral-gold); outline-offset:2px; }`}</style>
   </form>;
 }

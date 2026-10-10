@@ -14,6 +14,11 @@ test('birth form requires explicit dates/time confidence and separates Zeus conf
   let tree; const calls = [];
   function Harness() { const [input, onChange] = React.useState(initial); return React.createElement(Form, { input, onChange, onSubmit: value => calls.push(['reading', value]), onConfirm: value => calls.push(['Zeus', value]), loading: false, confirming: false, profileConfirmed: false, status: null, usage: { limit: 5, remaining: 5 }, enrichmentEnabled: true }); }
   act(() => { tree = create(React.createElement(Harness)); });
+  const text = JSON.stringify(tree.toJSON());
+  assert.match(text, /Use these birth details to calculate my chart and personalise my reading\/conversation\./);
+  assert.doesNotMatch(text, /Deepgram|DeepSeek|Astrologer|five.call|allowance|API calls remaining/i);
+  assert.equal(tree.root.findByType('a').props.href, '/privacy');
+  assert.equal(tree.root.findByType('a').props.target, '_blank');
   const confirm = () => tree.root.findAllByType('button').find(b => b.children.includes('Confirm birth details for Zeus'));
   assert.equal(confirm().props.disabled, true);
   assert.ok(!tree.root.findAllByType('input').some(i => i.props.type === 'time'));

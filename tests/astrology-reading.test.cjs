@@ -1,6 +1,5 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const ts = require('typescript');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -14,41 +13,79 @@ const pdfRoute = require('../src/app/api/reading/pdf/route.ts');
 const origin = 'http://localhost';
 function request(route, body, cookie) { return new Request(`${origin}${route}`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body) }); }
 
-test('confirmed profile → five hosted requests → evidence-rich DeepSeek reading → verified PDF → cached Zeus context', async t => {
+test('confirmed profile stays sky-only: no hosted charts, four geocentric horizons, verified metadata and PDF', async t => {
   const previousEnv = { ...process.env }, originalFetch = global.fetch;
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aeon-reading-'));
-  Object.assign(process.env, { ASTROLOGER_ENABLED: 'true', ASTROLOGER_API_KEY: 'synthetic-astrologer', ASTROLOGY_SESSION_SECRET: 'synthetic-secret-at-least-32-characters', ASTROLOGY_QUOTA_DIR: dir, DEEPSEEK_API_KEY: 'synthetic-deepseek' });
-  t.after(() => { process.env = previousEnv; global.fetch = originalFetch; fs.rmSync(dir, { recursive: true, force: true }); });
-  const { knownProfile, providerFixture } = await import('./fixtures/astrologer.mjs');
+  Object.assign(process.env, { ASTROLOGY_SESSION_SECRET: 'synthetic-secret-at-least-32-characters', DEEPSEEK_API_KEY: 'synthetic-deepseek' });
+  const { knownProfile } = await import('./fixtures/astrologer.mjs');
   const { astrology } = await import('../server/astrology.mjs');
   const { userIdentity } = await import('../server/astrology-quota.mjs');
+  const prepare = astrology.prepare, prepareCalls = [];
+  astrology.prepare = (...args) => { prepareCalls.push(args); return prepare(...args); };
+  t.after(() => { process.env = previousEnv; global.fetch = originalFetch; astrology.prepare = prepare; });
   let providerCalls = 0, readingCalls = 0, lastEvidence;
   global.fetch = async (url, args) => {
-    if (String(url).includes('astrologer.p.rapidapi.com')) {
-      providerCalls++; assert.equal(args.headers['X-RapidAPI-Key'], 'synthetic-astrologer'); return providerFixture(url, args);
-    }
-    assert.ok(String(url).includes('api.deepseek.com')); readingCalls++;
+    if (!String(url).includes('api.deepseek.com')) { providerCalls++; throw new Error('No chart or audio provider call allowed'); }
+    readingCalls++;
     const payload = JSON.parse(args.body), marker = 'VALIDATED COMPUTATION DATA: ';
     lastEvidence = JSON.parse(payload.messages[1].content.split(marker)[1].split('\n')[0]);
-    assert.equal(lastEvidence.natal.planets[0].name, 'Sun');
-    assert.ok(!payload.messages[1].content.includes('synthetic-astrologer'));
+    assert.equal(lastEvidence.natal, null);
+    assert.equal(lastEvidence.snapshots.length, 4);
+    assert.ok(lastEvidence.snapshots.every(snapshot => snapshot.natalAspects.length === 0));
     assert.ok(payload.messages[0].content.includes('geocentric'));
-    return Response.json({ choices: [{ message: { content: JSON.stringify({ greeting: 'Welcome.', summary: 'A chart-informed reflection.', sections: [], planetInsights: [], affirmation: 'I make thoughtful choices.' }) } }] });
+    assert.ok(payload.messages[1].content.includes('baseline four-horizon sky reading'));
+    return Response.json({ choices: [{ message: { content: JSON.stringify({ greeting: 'Welcome.', summary: 'A sky reflection.', sections: [], planetInsights: [], affirmation: 'I make thoughtful choices.' }) } }] });
   };
   const profile = await profileRoute.POST(request('/api/astrology/profile', knownProfile));
-  assert.equal(profile.status, 200); const cookie = profile.headers.get('set-cookie'), { profileId } = await profile.json();
-  const input = { birthDate: knownProfile.birthDate, birthTime: knownProfile.birthTime, birthPlace: 'London, UK', readingDate: '2026-10-09', profileId };
+  assert.equal(profile.status, 200);
+  const cookie = profile.headers.get('set-cookie'), { profileId } = await profile.json();
+  const input = { birthDate: knownProfile.birthDate, birthTime: knownProfile.birthTime, birthPlace: 'Unverified client place', readingDate: '2026-10-09', profileId };
   const response = await readingRoute.POST(request('/api/reading', input, cookie));
   assert.equal(response.status, 200); const reading = await response.json();
-  assert.equal(providerCalls, 5); assert.equal(readingCalls, 1); assert.equal(reading.sections.length, 16); assert.equal(reading.planetInsights.length, 8);
-  assert.equal(reading.meta.astrology.source, 'Astrologer v6'); assert.equal(reading.meta.astrology.usage.remaining, 0); assert.equal(reading.meta.birthTime, '10:15');
-  const earth = reading.planetInsights.find(p => p.id === 'earth'); assert.equal(earth.sign, 'Reflective note'); assert.ok(!/Earth in /.test(earth.title));
+  assert.equal(response.headers.get('cache-control'), 'private, no-store');
+  assert.equal(providerCalls, 0); assert.equal(readingCalls, 1);
+  assert.equal(prepareCalls[0][1], undefined, 'profile must not reach baseline calculation');
+  assert.equal(prepareCalls[0][3], true);
+  assert.equal(reading.sections.length, 16); assert.equal(reading.planetInsights.length, 8);
+  assert.equal(reading.birthChart, undefined);
+  assert.equal(reading.meta.profileId, profileId);
+  assert.equal(reading.meta.astrology.source, 'astronomy-engine'); assert.equal(reading.meta.astrology.usage, null);
+  assert.equal(reading.meta.birthTime, '10:15'); assert.equal(reading.meta.birthPlace, 'London, GB');
+  const earth = reading.planetInsights.find(p => p.id === 'earth');
+  assert.equal(earth.sign, 'Reflective note'); assert.ok(!/Earth in /.test(earth.title));
   const context = astrology.resolveContext(userIdentity(cookie).id, reading.meta.astrology.contextId);
   assert.deepEqual(context.natal, lastEvidence.natal);
+  assert.deepEqual(context.snapshots.map(snapshot => snapshot.label), ['Today', '3 Days', 'Week', 'Month']);
   const pdf = await pdfRoute.POST(request('/api/reading/pdf', { reading }, cookie));
-  assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf'); assert.ok((await pdf.arrayBuffer()).byteLength > 5000);
-  const warm = await readingRoute.POST(request('/api/reading', input, cookie)); assert.equal(warm.status, 200); assert.equal(providerCalls, 5);
-  const denied = await readingRoute.POST(request('/api/reading', input)); assert.equal(denied.status, 400); assert.equal(providerCalls, 5);
-  const changed = await readingRoute.POST(request('/api/reading', { ...input, birthDate: '1991-01-01' }, cookie)); assert.equal(changed.status, 400);
-  const forged = await profileRoute.POST(new Request(`${origin}/api/astrology/profile`, { method: 'POST', body: JSON.stringify(knownProfile) })); assert.equal(forged.status, 403);
+  assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+  assert.ok((await pdf.arrayBuffer()).byteLength > 5000);
+  const warm = await readingRoute.POST(request('/api/reading', input, cookie));
+  assert.equal(warm.status, 200); assert.equal(providerCalls, 0);
+  assert.equal((await readingRoute.POST(request('/api/reading', input))).status, 400);
+  assert.equal((await readingRoute.POST(request('/api/reading', { ...input, birthDate: '1991-01-01' }, cookie))).status, 400);
+  assert.equal((await readingRoute.POST(request('/api/reading', { ...input, birthTime: '10:16' }, cookie))).status, 400);
+  assert.equal(readingCalls, 2);
+  assert.equal((await profileRoute.POST(new Request(`${origin}/api/astrology/profile`, { method: 'POST', body: JSON.stringify(knownProfile) }))).status, 403);
+});
+
+test('anonymous baseline works without chart session configuration and does not invoke a chart worker', async t => {
+  const previousEnv = { ...process.env }, originalFetch = global.fetch;
+  delete process.env.ASTROLOGY_SESSION_SECRET; process.env.DEEPSEEK_API_KEY = 'synthetic-deepseek';
+  t.after(() => { process.env = previousEnv; global.fetch = originalFetch; });
+  const { astrology } = await import('../server/astrology.mjs');
+  const prepare = astrology.prepare; let calls = 0;
+  astrology.prepare = (...args) => { calls++; assert.equal(args[0], null); assert.equal(args[1], undefined); return prepare(...args); };
+  t.after(() => { astrology.prepare = prepare; });
+  global.fetch = async () => Response.json({ choices: [{ message: { content: '{"summary":"A sky-only reflection."}' } }] });
+  const response = await readingRoute.POST(request('/api/reading', { birthDate: '1990-05-01', readingDate: '2026-10-09' }));
+  assert.equal(response.status, 200); assert.equal(calls, 1);
+  const reading = await response.json();
+  assert.equal(reading.meta.astrology.contextId, undefined);
+  assert.equal(reading.meta.astrology.usage, null);
+  assert.equal(reading.sections.length, 16);
+  global.fetch = async () => Response.json({ choices: [{ message: { content: 'unparseable model output' } }] });
+  const fallback = await readingRoute.POST(request('/api/reading', { birthDate: '1990-05-01', readingDate: '2026-10-09' }));
+  assert.equal(fallback.status, 200, 'baseline fallback behavior is unchanged');
+  const repaired = await fallback.json();
+  assert.match(repaired.summary, /grounded fallback/);
+  assert.equal(repaired.sections.length, 16); assert.equal(repaired.planetInsights.length, 8);
 });

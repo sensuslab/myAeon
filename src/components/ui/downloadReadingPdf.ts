@@ -9,11 +9,11 @@ function filenameFor(reading: ReadingPayload) {
   return `${safeFilename(reading.sunSign.name)}-myAeon-reading-${safeFilename(date)}.pdf`;
 }
 
-export async function downloadReadingPdf(reading: ReadingPayload) {
+export async function downloadReadingPdf(reading: ReadingPayload, contextId?: string) {
   const response = await fetch("/api/reading/pdf", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reading }),
+    body: JSON.stringify({ reading, ...(contextId ? { contextId } : {}) }),
   });
 
   if (!response.ok) {

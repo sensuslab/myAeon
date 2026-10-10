@@ -26,6 +26,7 @@ export type ReadingPayload = {
   affirmation: string;
   audioScript?: string;
   audioAuthorization?: AudioAuthorization;
+  birthChart?: BirthChartInterpretation;
   meta?: {
     astrology?: import("@/lib/astrologyTypes").AstrologyMetadata;
     provider?: string;
@@ -37,5 +38,15 @@ export type ReadingPayload = {
     birthDate?: string;
     birthTime?: string;
     birthPlace?: string;
+    profileId?: string;
   };
+};
+
+export type BirthChartInterpretation = {
+  contextId: string;
+  title: string;
+  overview: string;
+  sections: Array<{ title: string; body: string }>;
+  synthesis: string;
+  reflection: string;
 };

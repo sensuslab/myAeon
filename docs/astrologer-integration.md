@@ -83,3 +83,7 @@ The integration suite covers known/estimated/unknown time, London historical DST
 Development verification uses synthetic provider data, never a real person's chart. A deployment smoke test with the configured subscription is still required; it should verify API responses and actual Deepgram voice function dispatch without making automatic retries.
 
 References: [Astrologer v6 README](https://github.com/g-battaglia/Astrologer-API/blob/v6/README.md), [request models](https://github.com/g-battaglia/Astrologer-API/blob/v6/types/request_core.py), [hosted playground](https://rapidapi.com/gbattaglia/api/astrologer/playground/).
+> Historical implementation notes: the hosted RapidAPI integration and its
+> five-call ledger have been replaced by the self-hosted Kerykeion core.
+> Use [kerykeion-core-plan.md](./kerykeion-core-plan.md) and the root README
+> for current deployment instructions. These notes describe the previous release.

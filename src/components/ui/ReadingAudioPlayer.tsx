@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { Download, LoaderCircle, Pause, Play, Square } from "lucide-react";
 import type { ReadingAudioState } from "./useReadingAudio";
+import { publicMessage } from "./chartPresentation";
 
 function timeLabel(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -56,8 +57,8 @@ export default function ReadingAudioPlayer({ audio }: { audio: ReadingAudioState
             : stream.playing ? "Listening" : stream.ready ? "Paused" : ""}
       </p>
       {audio.generating && <p role="status" className="mt-2 text-xs text-[var(--app-text)] opacity-60">Preparing your complete recording...</p>}
-      {stream.error && <p role="alert" className="mt-2 text-xs text-red-400">{stream.error}</p>}
-      {audio.error && <p role="alert" className="mt-2 text-xs text-red-400">{audio.error}</p>}
+      {stream.error && <p role="alert" className="mt-2 text-xs text-red-400">{publicMessage(stream.error, "Could not start listening. Please try again.")}</p>}
+      {audio.error && <p role="alert" className="mt-2 text-xs text-red-400">{publicMessage(audio.error, "Could not generate your recording. Please try again.")}</p>}
     </section>
   );
 }

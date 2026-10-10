@@ -98,3 +98,5 @@ Test known/unknown/estimated birth time, historical DST, ambiguous cities, zero 
 Confirm v6 subscription/key type, the location/timezone provider, retention policy and quota ceiling. Recommended initial defaults: hosted service, tropical apparent geocentric calculations, explicit Placidus, no invented unknown birth times, ephemeral private caching, and shared facts for reading and Zeus.
 
 References: [v6 API README](https://github.com/g-battaglia/Astrologer-API/blob/v6/README.md), [v6 playground](https://rapidapi.com/gbattaglia/api/astrologer/playground/), [subscription](https://www.kerykeion.net/astrologer-api/subscribe).
+> Archived plan: superseded by [kerykeion-core-plan.md](./kerykeion-core-plan.md).
+> The current implementation does not use RapidAPI or a chart-generation quota.

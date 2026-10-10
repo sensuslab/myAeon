@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AudioLines, BookOpen, CalendarDays, Orbit, X } from "lucide-react";
+import Link from "next/link";
 
 const steps = [
-  { title: "Two views of the same sky", icon: Orbit, body: "Drag, zoom and tap planets in the heliocentric 3D display. Your reading and Zeus use a separate geocentric tropical chart, including the Sun and Moon. A planet’s visual sign may differ from its astrological placement. Earth remains a grounding reflection." },
+  { title: "Two views of the same sky", icon: Orbit, body: "Choose Solar system or Birth chart above the scene. The solar system is an illustrative heliocentric view; the birth chart is geocentric and tropical, so their signs may differ. Earth remains a grounding reflection." },
   { title: "Confirm your birth details", icon: CalendarDays, body: "Enter your birth date and choose Known, Estimated or Unknown birth time. London, UK and Europe/London are the defaults. Confirm your birthplace and recorded local time, then allow chart processing. Use Confirm birth details for Zeus even before casting a reading." },
-  { title: "Read with the right confidence", icon: BookOpen, body: "Known birth time can enable natal Moon, Ascendant, houses and transit-to-natal aspects. Estimated time gives approximate placements without houses or angles. Unknown time gives a limited reading. Today, 3 Days, Week and Month use dated London-noon snapshots, not guaranteed predictions or exact event times." },
-  { title: "Your five-call allowance", icon: CalendarDays, body: "Each anonymous browser user has five Astrologer API calls in total, shared by readings and Zeus. A full first reading uses one natal chart and four transit snapshots. Cached results cost no calls. Failed requests count too. When the allowance is used or the provider is unavailable, local sky exploration continues with clear limits." },
-  { title: "Explore with Zeus", icon: AudioLines, body: "Start Talk to Zeus from the sky or a reading. Ask about your confirmed natal chart, dated transits, the Moon or astrological theory. Zeus uses the same computed facts as your reading and retrieves details on demand. Theory and local Moon calculations do not use chart API calls. Closing the conversation stops your microphone." },
-  { title: "Listen, save and understand", icon: BookOpen, body: "Listen to a reading, generate an audio download or save a PDF with its source and confidence details. Birth information is processed by Astrologer when calculations are requested; readings use DeepSeek, and voice uses Deepgram and its model provider. Private chart context expires after an hour. The anonymous allowance persists." },
+  { title: "Read with the right confidence", icon: BookOpen, body: "A full wheel needs a known, recorded local birth time and exact birthplace. Estimated times give approximate placements without houses, angles or a wheel. Unknown times give a limited reading. Readings use dated London-noon snapshots, not guaranteed predictions." },
+  { title: "Explore your private chart", icon: Orbit, body: "Cast a reading to load your reading and calculated chart independently, or choose Calculate chart in the birth chart view. Switch Natal and Transits, choose Tilt or Flat, inspect calculated placements, and download the original SVG. Changing birth details or the sky date clears the previous chart." },
+  { title: "Interpret only when you choose", icon: BookOpen, body: "Chart calculation does not generate an AI interpretation. Choose Enhance with my birth chart from your reading or chart view, or Interpret birth chart when no reading exists. The interpretation is labelled separately from calculated facts. A failed chart request leaves your reading intact." },
+  { title: "Explore with Zeus", icon: AudioLines, body: "Start Talk to Zeus from the sky or a reading. He receives your selected-date sky, current reading and available calculated chart facts. Microphone access starts only when you start a conversation. Closing the conversation stops your microphone." },
+  { title: "Listen, save and understand", icon: BookOpen, body: "Listen to a reading, generate an audio download or save a PDF. Chart calculations run on this app's server. AI readings, audio and conversations use remote services. Private chart context expires after an hour; theme and tour preferences stay in your browser. Read the privacy policy for processing and retention details." },
 ];
 
 export default function QuickTour({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -25,7 +27,7 @@ export default function QuickTour({ open, onClose }: { open: boolean; onClose: (
     const keydown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
       if (event.key !== "Tab") return;
-      const buttons = Array.from(panel.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);
+      const buttons = Array.from(panel.current?.querySelectorAll<HTMLElement>("button:not(:disabled), a[href]") ?? []);
       const first = buttons[0], last = buttons[buttons.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
@@ -48,7 +50,7 @@ export default function QuickTour({ open, onClose }: { open: boolean; onClose: (
           <h2 id="quick-tour-title" className="mb-4 text-2xl font-medium leading-tight">{current.title}</h2>
           <p id="quick-tour-body" className="text-base leading-7">{current.body}</p>
         </div>
-        <p className="mb-5 text-xs leading-5 opacity-70">Astrology offers reflection, not certain predictions.</p>
+        <p className="mb-5 text-xs leading-5 opacity-70">Astrology offers reflection, not certain predictions. <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy policy</Link></p>
         <div className="flex items-center gap-3">
           <button onClick={() => step ? setStep(step - 1) : onClose()} className="h-12 flex-1 rounded-md border border-[var(--panel-border)]">{step ? "Back" : "Skip"}</button>
           <button onClick={() => step === steps.length - 1 ? onClose() : setStep(step + 1)} className="h-12 flex-[2] rounded-md bg-[#d4a437] px-3 font-semibold text-[#15121a]">{step === steps.length - 1 ? "Start exploring" : "Next"}</button>

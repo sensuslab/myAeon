@@ -1,128 +1,41 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useRef } from "react";
+import Link from "next/link";
+import { X } from "lucide-react";
 
-type Props = {
-  open: boolean;
-  onClose: () => void;
-};
-
-/**
- * "How This Works" transparency section — describes what the AI does,
- * what it doesn't do, and where the data comes from.
- */
-export default function HowItWorksModal({ open, onClose }: Props) {
-  return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: "spring", damping: 22 }}
-            className="fixed top-1/2 left-1/2 z-50 max-h-[82svh] w-[calc(100vw-1.5rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto glass-strong rounded-2xl p-5 md:p-8"
-          >
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.3em] text-astral-cyan/80">
-                  Transparency
-                </p>
-                <h2 className="text-2xl font-light gold-text mt-1">How This Works</h2>
-              </div>
-              <button
-                onClick={onClose}
-                aria-label="Close"
-                className="w-9 h-9 rounded-full glass hover:bg-white/10 transition flex items-center justify-center text-white/70 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4 text-sm text-[var(--app-text)] leading-relaxed">
-              <Section title="What you&apos;re seeing">
-                A live 3D model of our solar system. The Sun provides the main
-                light while a soft celestial fill keeps each planet legible.
-                The positions of the planets are calculated using the <code className="text-astral-cyan">astronomy-engine</code> library
-                for the selected date. The scene is an illustrative heliocentric
-                snapshot. Readings and Zeus use geocentric tropical chart facts, so displayed signs may differ. Earth is a reflective note, never an ordinary geocentric natal planet.
-              </Section>
-
-              <Section title="Where the reading comes from">
-                Confirmed birth information is used by the hosted Astrologer v6 service to calculate natal placements and dated transits. Those validated facts are shared with Zeus and sent to
-                <code className="text-astral-cyan">api.deepseek.com</code> using the
-                DeepSeek V4 Pro language model. The model is asked to write a
-                structured reading across four life domains (love, purpose,
-                body, inner world), four time horizons (today, three days,
-                this week, this month), and a personal note for each visible
-                planet. The response is parsed and rendered in the right-hand
-                panel.
-              </Section>
-
-              <Section title="Talk to Zeus">
-                Zeus uses Deepgram Voice Agent with GPT 6 Luna and an Aura 2
-                Hyperion voice. He receives the selected-date sky and your
-                current reading when available. Confirmed known birth time can supply a calculated natal chart. Estimated times omit houses and angles; unknown times omit exact natal placements and aspects. Zeus retrieves natal, transit and lunar details on demand, within the same allowance as readings. Microphone access starts only when you start a
-                conversation; closing it stops the microphone.
-              </Section>
-
-              <Section title="What Aeon is careful about">
-                The model is instructed to write poetically and specifically,
-                but never to make deterministic life claims. It will not
-                predict medical outcomes, deaths, lottery wins, or relationship
-                outcomes. It frames everything as an invitation to reflection,
-                not a forecast. If you are in distress, please reach out to a
-                qualified human — a therapist, a doctor, a trusted friend.
-              </Section>
-
-              <Section title="Your data">
-                Confirmed birth information is processed by Astrologer when a chart is requested. Reading details and chart facts are processed by DeepSeek. Listening and voice
-                conversations are processed by Deepgram and its applicable model
-                provider. Their privacy and retention policies apply. myAeon does
-                not save conversations; active voice context is held temporarily
-                on the server. Private profile and chart facts are cached temporarily for up to one hour. A signed anonymous browser cookie identifies your five-call total allowance; only a hashed usage counter is persisted. Clearing cookies creates a new anonymous identity because this app has no account login. Theme and quick-tour preferences are saved in your
-                browser. API keys stay on the server, never in your browser.
-              </Section>
-
-              <Section title="Chart allowance">
-                Five hosted API attempts per anonymous browser user in total, shared across reading and voice. One natal plus four transit snapshots can use the whole allowance. Cached results and local sky or Moon calculations cost no calls. Failures count; when enrichment is unavailable, the app shows the limits and continues with local facts.
-              </Section>
-
-              <Section title="The source">
-                The 3D scene uses React Three Fiber on top of three.js. The
-                planetary positions are computed via the open-source
-                astronomy-engine (Don Cross, MIT licensed). The reading model
-                is DeepSeek V4 Pro (DeepSeek).
-              </Section>
-            </div>
-
-            <button
-              onClick={onClose}
-              className="w-full mt-6 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition text-sm uppercase tracking-widest text-white/80"
-            >
-              Close
-            </button>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
+export default function HowItWorksModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const frame = requestAnimationFrame(() => panel.current?.querySelector<HTMLButtonElement>("button")?.focus());
+    return () => { cancelAnimationFrame(frame); previous?.focus(); };
+  }, [open]);
+  return <AnimatePresence>{open && <>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" />
+    <motion.div ref={panel} role="dialog" aria-modal="true" aria-labelledby="how-title" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="fixed top-1/2 left-1/2 z-50 max-h-[82svh] w-[calc(100vw-1.5rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto glass-strong rounded-lg p-5 md:p-8" onKeyDown={event => {
+      if (event.key === "Escape") onClose();
+      if (event.key !== "Tab") return;
+      const elements = event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]');
+      const first = elements[0], last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }}>
+      <div className="mb-5 flex items-center justify-between gap-3"><h2 id="how-title" className="text-xl font-medium gold-text">How this works</h2><button type="button" onClick={onClose} title="Close" aria-label="Close" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg glass"><X size={20} /></button></div>
+      <div className="space-y-5 text-sm leading-6 text-[var(--app-text)]">
+        <Section title="Two views">The solar system is an illustrative heliocentric snapshot for the selected date. The birth chart uses calculated geocentric tropical placements. Their signs may differ. Earth is a grounding reflection, not a geocentric natal planet.</Section>
+        <Section title="Calculation and interpretation">Chart calculations run on this app&apos;s server. Casting loads a baseline reading and calculated chart independently. A chart request alone does not generate an AI reading. Birth chart interpretation starts only when you choose Enhance with my birth chart or Interpret birth chart. Calculated facts and AI interpretation are labelled separately.</Section>
+        <Section title="Birth-time confidence">A full wheel needs a known, recorded local birth time and exact birthplace. Estimated times give approximate placements without houses, angles or a wheel. Unknown times give a limited reading. Sky snapshots use noon in London, UK, not exact event times.</Section>
+        <Section title="Talk to Zeus">Zeus receives the selected sky date, your reading and available calculated chart facts. Microphone access begins only when you start a conversation. Closing the conversation stops the microphone.</Section>
+        <Section title="Reflection, not certainty">Readings are AI-generated invitations to reflection, not professional advice or guaranteed predictions. For personal decisions or distress, speak with a qualified person you trust.</Section>
+        <Section title="Your data">AI readings, speech and conversations use remote services. Private profiles, chart facts and generated audio are cached temporarily; browser preferences remain local. Provider policies and hosting logs may have different retention periods. <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="text-astral-cyan underline underline-offset-2">Read the privacy policy</Link> for processing, retention, source code and licensing details.</Section>
+      </div>
+    </motion.div>
+  </>}</AnimatePresence>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="text-astral-gold text-[11px] uppercase tracking-widest mb-2">
-        {title}
-      </h3>
-      <p>{children}</p>
-    </div>
-  );
+  return <section><h3 className="mb-2 text-sm font-medium text-astral-gold">{title}</h3><p>{children}</p></section>;
 }

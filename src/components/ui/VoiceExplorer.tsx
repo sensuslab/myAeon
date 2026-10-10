@@ -4,6 +4,8 @@ import { AudioLines, X, Mic, MicOff, Volume2, VolumeX, Send } from "lucide-react
 import { AgentProvider, Orb, useAgentContext } from "@deepgram/ui";
 import type { AgentSessionConfig } from "@deepgram/agents";
 import type { ReadingPayload } from "./types";
+import Link from "next/link";
+import { publicMessage } from "./chartPresentation";
 type Props = { profileId?: string; contextId?: string; onUsageRefresh: () => void; reading: ReadingPayload | null; viewedDate: string; selectedPlanet: string | null; onStart: () => void; open: boolean; onOpen: () => void; onClose: () => void };
 
 function Conversation({ onEnd }: { onEnd: (error?: string) => void }) {
@@ -58,7 +60,7 @@ export default function VoiceExplorer({ profileId, contextId, onUsageRefresh, re
       startRef.current(); setError(null);
       const response = await fetch("/api/explore/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ context: context.current }) });
       const data = await response.json();
-      if (!response.ok) { setError(data.error || "Could not start conversation."); throw new Error("Session unavailable"); }
+      if (!response.ok) { setError(publicMessage(data.error, "Could not start conversation. Please try again.")); throw new Error("Session unavailable"); }
       token.current = data.token; return data.token;
     } },
     agent: { think: { provider: { type: "open_ai", model: "gpt-6-luna" } } },
@@ -83,12 +85,12 @@ export default function VoiceExplorer({ profileId, contextId, onUsageRefresh, re
     {open && <div className="fixed inset-0 z-[100] flex justify-end bg-black/45 backdrop-blur-sm" onClick={onClose}>
       <section role="dialog" aria-modal="true" aria-labelledby="voice-heading" style={{ height: viewportHeight ?? "100dvh" }} className="flex w-full flex-col bg-[var(--app-bg)] text-[var(--app-text)] shadow-2xl md:max-w-md" onClick={event => event.stopPropagation()} onKeyDown={event => {
         if (event.key === "Escape") onClose();
-        if (event.key === "Tab") { const elements = event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="0"]'); const first = elements[0]; const last = elements[elements.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); } }
+        if (event.key === "Tab") { const elements = event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="0"], a[href]'); const first = elements[0]; const last = elements[elements.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); } }
       }}>
         <header className="flex shrink-0 items-center justify-between border-b border-[var(--panel-border)] px-5 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)]"><div><h2 id="voice-heading" className="text-lg font-medium">Talk to Zeus</h2><p className="mt-1 text-xs opacity-60">{reading ? "Your reading and the sky" : "The sky and astrology"}</p></div><button ref={closeButton} onClick={onClose} aria-label="Close and end conversation" className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-white/10"><X size={20} /></button></header>
         {error && <p role="alert" className="mx-5 mt-3 text-sm text-red-500">{error}</p>}
         <AgentProvider key={sessionVersion} config={config} tts><Conversation onEnd={message => { token.current = null; onUsageRefresh(); setError(message || null); setSessionVersion(value => value + 1); }} /></AgentProvider>
-        <p style={{ display: viewportHeight && viewportHeight < 320 ? "none" : undefined }} className="shrink-0 border-t border-[var(--panel-border)] px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 text-xs leading-5 opacity-60">Audio and chart context are processed by Deepgram and its model provider. Conversations are not saved by myAeon. Astrology offers reflection, not certainty.</p>
+        <p style={{ display: viewportHeight && viewportHeight < 320 ? "none" : undefined }} className="shrink-0 border-t border-[var(--panel-border)] px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 text-xs leading-5 opacity-60">Audio, messages and selected chart facts are processed remotely when you start a conversation. Astrology offers reflection, not certainty. <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy policy</Link></p>
       </section>
     </div>}
   </>;

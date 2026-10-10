@@ -1,0 +1,15 @@
+# Verified locally with Python 3.12.13. No runtime ephemeris downloads.
+# Kerykeion and the bundled libephemeris are AGPL; pyswisseph is separately AGPL.
+# Sources/notices: https://github.com/g-battaglia/kerykeion (LICENSE, NOTICE)
+# Release: https://github.com/g-battaglia/kerykeion/releases/tag/v6.0.2
+# libephemeris: https://github.com/g-battaglia/libephemeris (AGPL-3.0-only)
+# https://github.com/astrorigin/pyswisseph and https://github.com/aloistr/swisseph
+# Non-commercial hosting does not exempt a public network service from AGPL.
+# Before proprietary/public release, review source-disclosure obligations and
+# obtain any separate commercial licenses required by both upstream projects.
+# The worker verifies Swiss Ephemeris' Moshier analytical flags and positions;
+# it does NOT claim the JPL precision of file-backed ephemerides. Sun-Pluto only.
+kerykeion[swiss]==6.0.2
+pyswisseph==2.10.3.2
+libephemeris==3.2.1
+tzdata==2026.5

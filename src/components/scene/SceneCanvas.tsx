@@ -71,8 +71,8 @@ export default function SceneCanvas({
             selectedPlanetId={selectedPlanetId}
             theme={theme}
           />
-          <CanvasReady onReady={onReady} />
         </Suspense>
+        <CanvasReady onReady={onReady} />
 
         <OrbitControls
           enablePan={false}

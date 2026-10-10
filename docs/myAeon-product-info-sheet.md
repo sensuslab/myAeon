@@ -23,6 +23,7 @@ myAeon helps people reflect on timing, energy, and personal direction through a 
 ## Key Features
 
 - Live 3D planetary visualization with clearer orbit rings, labels, and interactive planet selection.
+- A second birth-chart workspace with locally calculated natal and transit wheels, flat or tilted in 3D space, and original SVG downloads.
 - Personalized reading generation based on birth date, birth time, optional birth place, and selected sky date.
 - Future-date sky estimation for upcoming symbolic readings and preparation.
 - Reading sections across four life domains: Love & Connection, Purpose & Work, Body & Energy, and Inner World.
@@ -31,6 +32,10 @@ myAeon helps people reflect on timing, energy, and personal direction through a 
 - Light and dark modes with branded myAeon visuals.
 - Mobile-first reading drawer and full-screen reading mode.
 - Designed PDF export for saving or sharing the complete reading.
+- Optional personal birth-chart interpretation that enhances the sky reading, PDF and spoken overview.
+- Streamed listening and a separate downloadable audio recording.
+- Talk to Zeus: interactive conversation about the sky, chart placements, theory and generated readings.
+- A dedicated privacy policy and explicit choices about chart interpretation and voice processing.
 - Branded app icon, wordmark, and animated preloader.
 
 ## Reading Intelligence
@@ -39,7 +44,7 @@ The reading engine enriches AI prompts with:
 
 - Current or selected-date planetary positions.
 - Sun sign metadata: element, modality, and ruling planet.
-- Major aspects between the selected sky and the user's sun sign.
+- Computed major sky aspects, with actual natal and transit-to-natal relationships added only during requested birth-chart interpretation.
 - Planetary dignity notes such as domicile, exaltation, detriment, and fall.
 - Clear safety framing: astrology is treated as a reflective symbolic lens, not a deterministic prediction.
 
@@ -79,6 +84,8 @@ myAeon brings astrology into a premium interactive format. Start with the planet
 
 - Real planetary positioning
 - Interactive 3D solar system
+- Natal and transit chart workspace
+- Optional birth-chart interpretation and synthesis
 - Personalized AI reading
 - Upcoming sky date readings
 - Love, work, body, and inner-world guidance
@@ -86,6 +93,8 @@ myAeon brings astrology into a premium interactive format. Start with the planet
 - Mobile-optimized reading mode
 - Light and dark themes
 - Branded PDF export
+- Streamed and downloadable spoken readings
+- Interactive conversation with Zeus
 - Reflective, non-deterministic astrology
 
 ## Call To Action Options

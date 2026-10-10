@@ -1,196 +1,121 @@
-# Aeon — Cosmic Astrological Guide
+# myAeon
 
-A premium full-screen 3D **live solar system** with the Sun as the only light source and the eight planets in their real heliocentric positions, combined with an AI-powered astrological reading. Built with **Next.js 14 (App Router)**, **React Three Fiber**, and the **DeepSeek V4 Pro** language model.
+An interactive solar system, personal birth-chart workspace and reflective
+astrological readings. The solar display uses heliocentric geometry; birth charts
+and the facts used in readings are geocentric, tropical and Placidus. Astrology
+is a reflective practice, not deterministic prediction.
 
-> The planets aren't a metaphor. Their angles are computed live by `astronomy-engine` for the current moment. Your reading then uses those same angles — plus your birth date — to write a personalized reflection.
+## Experience
 
-![aeon preview](https://placehold.co/1200x600/040414/d4a437?text=AEON+%E2%80%94+LIVE+SOLAR+SYSTEM+%2B+AI+READINGS)
+- Live or selected-date solar system, flat/3D views and planet insights.
+- Locally calculated natal and transit wheels, rendered as SVG textures in 3D.
+- Birth date, time, time confidence, confirmed coordinates and IANA timezone.
+- Today, three-day, weekly and monthly readings across four life domains.
+- Optional birth-chart interpretation, standalone or enhancing a reading.
+- Designed PDF with all reading sections, planetary reflections and chart pages.
+- Streamed listening, downloadable narration and additional birth-chart insight.
+- Talk to Zeus using fresh sky, confirmed facts and generated interpretation.
+- Mobile reading drawer, reading-only view, light/dark themes and first-use tour.
+- Separate privacy policy; no provider branding in routine controls.
 
----
+## Architecture
 
-## ✨ What's on screen
+Next.js and the custom Node server run beside an offline Python worker in one
+Docker container. Kerykeion 6.0.2 with the Swiss Ephemeris Moshier backend computes
+charts without RapidAPI, GeoNames or ephemeris downloads. No chart key, hosted
+subscription, five-call allowance or persistent quota ledger is used.
 
-- **Live 3D solar system** — Sun at center, eight planets (Mercury → Neptune), each lit only on its sun-facing side. Saturn has its rings.
-- **Real orbital positions** — every planet's angle is computed by the `astronomy-engine` library from the current UTC time. The scene is a faithful snapshot of the real solar system.
-- **Hover tooltips** — name + archetype + the zodiac sign each planet is currently transiting.
-- **Bottom planet-info bar** — every planet's current zodiac sign + degree, updated live.
-- **Flat ↔ 3D toggle** — flatten the system onto the camera plane for a top-down map view, or rotate freely in 3D.
-- **Persistent left panel** — birth-data form, sun sign auto-detected from your date.
-- **Persistent right panel** — your reading, with tabs for **Today / 3 Days / Week / Month** across **Love / Purpose / Body / Inner World**.
-- **"How This Works" modal** — full transparency on what the AI does and doesn't claim.
-- **Listen to reading** — a separate spoken adaptation is included in every AI reading. Choose Listen to generate audio, then pause, seek, change speed, replay or download it on desktop and mobile.
+Signed anonymous browser identities bind profiles, charts and enhanced readings
+to their owner. These are temporary in-memory caches, not an account database;
+they expire and are lost on deployment/restart. One Railway replica is required
+until context and WebSocket tickets move to shared storage.
 
----
+The initial reading and chart preparation run independently after birth details
+are confirmed. Chart interpretation is an explicit action, not an automatic
+extra AI request. It sends structured facts and bounded semantic chart context,
+**not SVG markup or unsupported vision input**, to DeepSeek. SVGs are retained for
+visualization, download and PDF. Zeus receives facts and generated text through
+read-only server functions.
 
-## 🚀 Deploy to Railway (one-click)
+## Local Development
 
-This repo ships with `railway.json` + `nixpacks.toml` so Railway auto-detects it as a Next.js project.
-
-### Option A — Deploy from GitHub (recommended)
-
-```bash
-git init
-git add .
-git commit -m "feat: aeon initial commit"
-git branch -M main
-git remote add origin git@github.com:YOUR_USERNAME/aeon.git
-git push -u origin main
-```
-
-Then on Railway:
-1. **New Project → Deploy from GitHub repo → pick `aeon`**
-2. **Variables tab → add** `DEEPSEEK_API_KEY = <your key>` (get one from the [DeepSeek platform](https://platform.deepseek.com/))
-   - Optional overrides:
-     - `DEEPSEEK_MODEL` (default `deepseek-v4-pro`)
-     - `DEEPSEEK_API_BASE` (default `https://api.deepseek.com`)
-     - `DEEPSEEK_TIMEOUT_MS` (default `120000`)
-   - To enable listening, add server-side `DEEPGRAM_API_KEY`, `DEEPGRAM_MODEL=aura-2`, and `DEEPGRAM_VOICE=thalia-en`. Audio is generated only when the listener requests it. See [reading audio setup](docs/reading-audio.md).
-3. **Settings → Networking → Generate Domain**
-
-### Option B — Railway CLI
+Requires Node.js 22 and Python 3.12 or later.
 
 ```bash
-npm i -g @railway/cli
-railway login
-railway init
-railway up
-railway variables set DEEPSEEK_API_KEY=your_key_here
-railway domain
-```
-
-See the `use-railway` skill for the full CLI/MCP workflow: [`npx skills add railwayapp/railway-skills`](https://www.skills.sh/railwayapp/railway-skills/use-railway).
-
----
-
-## 🛠 Local development
-
-Requires Node 18+ (Node 20 recommended — that's what Railway uses).
-
-```bash
-npm install
-cp .env.example .env.local        # then paste your DEEPSEEK_API_KEY
+npm ci
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Set `ASTROLOGY_SESSION_SECRET` to a stable random value of at least 32 characters.
+Set `DEEPSEEK_API_KEY` for written interpretation and `DEEPGRAM_API_KEY` for
+listening and Zeus. Keys remain
+server-side. Open http://localhost:3000.
 
-### Health check
+The worker auto-detects `.venv/bin/python`; override with `ASTROLOGY_PYTHON` for
+another environment. Coordinates/timezone are entered or explicitly confirmed;
+no network geocoding is performed. Estimated times omit houses and angles.
+Unknown times do not invent a natal chart.
 
-```bash
-curl http://localhost:3000/api/reading
-```
+## Deployment
 
-Returns the configured model + whether the key is set:
-
-```json
-{ "service": "aeon-reading", "provider": "deepseek", "model": "deepseek-v4-pro", "configured": false, ... }
-```
-
----
-
-## 🧱 Stack
-
-| Layer        | Tech                                                  |
-| ------------ | ----------------------------------------------------- |
-| Framework    | Next.js 14 (App Router) + React 18 + TypeScript       |
-| 3D           | three.js + @react-three/fiber + @react-three/drei     |
-| Astronomy    | astronomy-engine (live planetary positions)           |
-| UI motion    | framer-motion                                         |
-| AI           | DeepSeek `deepseek-v4-pro` via `https://api.deepseek.com` |
-| Styling      | Tailwind CSS v3                                       |
-| Deploy       | Railway (Nixpacks)                                    |
-
----
-
-## 📁 Project structure
-
-```
-src/
-├── app/
-│   ├── api/reading/route.ts    ← POST endpoint that calls DeepSeek
-│   ├── layout.tsx
-│   ├── page.tsx                ← main scene + panels wiring
-│   ├── globals.css
-│   └── fonts/                  ← Geist (local)
-├── components/
-│   ├── scene/
-│   │   ├── SceneCanvas.tsx     ← R3F Canvas root + camera
-│   │   ├── SolarSystem.tsx     ← orchestrator
-│   │   ├── Sun.tsx             ← emissive sun + point light
-│   │   ├── Planet.tsx          ← single planet + hover
-│   │   ├── PlanetOrbit.tsx     ← orbital ring
-│   │   ├── Starfield.tsx       ← twinkling procedural stars
-│   │   └── Nebula.tsx          ← soft color clouds
-│   └── ui/
-│       ├── AppHeader.tsx
-│       ├── ControlPanel.tsx    ← left: birth data + view toggle
-│       ├── ReadingPanel.tsx    ← right: tabs + reading output
-│       ├── PlanetTooltip.tsx   ← hover popover
-│       ├── PlanetInfoBar.tsx   ← bottom planet strip
-│       ├── HowItWorksModal.tsx ← transparency modal
-│       └── types.ts            ← shared ReadingPayload type
-└── lib/
-    └── zodiac.ts               ← planet data + astronomy-engine wrapper
-```
-
----
-
-## 🔐 Environment variables
-
-| Variable            | Required | Default                          | Notes                                              |
-| ------------------- | -------- | -------------------------------- | -------------------------------------------------- |
-| `DEEPSEEK_API_KEY`   | ✅       | —                               | Server-side only. Never expose to the client.      |
-| `DEEPSEEK_API_BASE`  | ❌       | `https://api.deepseek.com`      | Base URL for DeepSeek's OpenAI-compatible API.     |
-| `DEEPSEEK_MODEL`     | ❌       | `deepseek-v4-pro`               | Model id sent in the request.                      |
-| `DEEPSEEK_TIMEOUT_MS`| ❌       | `120000`                        | Request timeout, capped at 180000ms.               |
-| `DEEPGRAM_API_KEY`   | For audio | —                              | Server-side Deepgram key; no `NEXT_PUBLIC_` prefix. |
-| `DEEPGRAM_MODEL`     | ❌       | `aura-2`                       | Aura family, or a full voice model id such as `aura-2-thalia-en`. |
-| `DEEPGRAM_VOICE`     | ❌       | `thalia-en`                    | Voice plus language; combined with the model family. Ignored when MODEL is a full id. |
-| `DEEPGRAM_TIMEOUT_MS`| ❌       | `300000`                       | Overall audio generation timeout, capped at 300000ms; two chunks generate concurrently. |
-
-Railway automatically provides `PORT` and `HOSTNAME` — Next.js reads them natively.
-
----
-
-## 🧠 How it works
-
-### The 3D scene
-
-`src/lib/zodiac.ts → computeSnapshot()` calls `astronomy-engine` to get each planet's heliocentric ecliptic longitude right now. Those longitudes become scene-space angles, so the planets are placed where they actually are.
-
-The Sun component holds the only point light source — this means every planet has a true lit side and a true dark side, exactly like in space. There's a soft ambient at 0.15 intensity so the dark sides aren't pitch black.
-
-### The AI integration
-
-`src/app/api/reading/route.ts` accepts a POST with the user's birth date (and optional name/time/place). It:
-
-1. Reuses a confirmed Astrologer v6 natal chart and four dated transit snapshots when configured, within five total calls per anonymous browser user. Otherwise it supplies limited local geocentric sky facts and a date-only Sun-sign theme. London, UK / Europe/London are the defaults; scene positions remain heliocentric.
-2. Builds a system prompt that asks for 16 sections across four timeframes, eight planet insights, and a separate complete `audioScript` in strict JSON.
-3. Calls `POST {DEEPSEEK_API_BASE}/chat/completions` with model `deepseek-v4-pro` by default, JSON output enabled, and thinking disabled for this strict JSON flow.
-4. Parses the JSON, stripping code fences or reasoning tags if the model includes them.
-5. Returns a structured payload to the client. With a Deepgram key configured, it includes a signed, 24-hour authorization for the narration script. No speech API call occurs here.
-6. Only when Listen is pressed, `/api/reading/audio` verifies the script authorization and calls Deepgram. Sentence-aware chunks are joined into a single WAV for full duration, seeking and playback. Replays reuse browser audio, with a bounded one-hour server cache for repeat requests.
-
-The API key is read from `process.env.DEEPSEEK_API_KEY` on the server only — it never reaches the browser.
-
-See [Astrologer integration setup and quota semantics](docs/astrologer-integration.md) for the server-only variables, persistent Railway volume, birth confirmation, shared Zeus functions and walkthrough.
-
-### Verify reading audio
+Railway builds the Dockerfile with both runtimes and pinned Python dependencies.
+Keep the existing AI keys and stable `ASTROLOGY_SESSION_SECRET`. Old
+`ASTROLOGER_*` and `ASTROLOGY_QUOTA_DIR` variables are ignored. Do not rotate the
+session secret during migration.
 
 ```bash
-npm run test:audio
+railway up --detach -m "Deploy myAeon local chart core"
+```
+
+The custom server listens on Railway's `PORT`. `/api/reading` reports reading
+configuration and `/api/astrology/profile` reports chart availability. Smoke-test
+actual calculation using a confirmed synthetic profile. Concurrency, payload,
+queue and timeout bounds protect the process; no daily/lifetime chart quota
+applies. Written AI and voice calls still incur their providers' normal costs.
+
+## API Flow
+
+1. `POST /api/astrology/profile` confirms details and returns an opaque ID.
+2. `POST /api/reading` produces the initial sky reading independently of natal work.
+3. `POST /api/astrology/chart` with `{profileId, readingDate}` prepares local
+   natal/transit facts and theme-specific SVGs in temporary memory.
+4. `POST /api/reading/enhance` with `{contextId, reading?}` produces a complete
+   reading with a `birthChart` section and saves it against the owned context.
+   Omit `reading` for standalone interpretation.
+5. PDF and audio use the current reading. PDF SVGs come from owned server context,
+   never client-submitted markup.
+6. Zeus hydrates fresh facts and the saved interpretation at session open/refresh.
+
+## Verification
+
+```bash
+npm test
 npx tsc --noEmit
 npm run build
 ```
 
-The audio tests mock provider responses and verify deferred generation, script authorization, chunking, WAV assembly, caching, concurrent request deduplication, partial-failure retries and safe errors. Live voice quality requires configured DeepSeek and Deepgram credentials.
+Worker tests use the installed Python runtime; mocked tests cover owner isolation,
+temporary storage, cancellation and no quota. Browser checks cover both scenes,
+mobile controls, themes and chart rendering. Paid live checks require keys.
 
----
+## Documentation
 
-## 🪪 License
+- [Implementation plan](docs/kerykeion-core-plan.md)
+- [Reading prompt](docs/reading-prompt.md)
+- [Voice agent and tools](docs/voice-agent.md)
+- [Reading audio](docs/reading-audio.md)
+- [Product info sheet](docs/myAeon-product-info-sheet.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-MIT — do whatever you want, just don't claim the stars are deterministic.
+## Licensing
 
----
-
-> "We are a way for the cosmos to know itself." — Carl Sagan
+Application source is published above; this notice does not relicense it.
+Kerykeion and its calculation backend carry separate upstream licenses; review
+the notices and application licensing before distribution
+or network availability. Non-commercial use does not automatically remove AGPL
+source obligations. Switching to a paid hosted service later does not resolve
+obligations of earlier self-hosted releases. This is a technical notice, not legal
+advice.

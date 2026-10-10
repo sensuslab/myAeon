@@ -1,6 +1,6 @@
 # myAeon Voice Explorer
 
-The Explore button opens an audio-reactive Deepgram Orb, with start/end,
+The Talk to Zeus button opens an audio-reactive voice orb, with start/end,
 microphone mute, speaker mute, a live transcript and optional text questions.
 Closing the panel ends the microphone and provider connection. A new session
 starts with fresh context, without requiring a reading.
@@ -32,10 +32,13 @@ No default form values are assumed to be confirmed personal information.
   Geocentric tropical longitudes for Sun, Moon and seven planets (excluding Earth), plus major
   transit-to-transit aspects within a six-degree orb.
 - `get_natal_chart`: server-owned computed natal facts and confidence, if available.
-- `get_transits`: at most four selected-date horizons (+0/+3/+7/+30), sharing the five-call total Astrologer allowance with written readings; caches are reused.
+- `get_transits`: up to four selected-date horizons (+0/+3/+7/+30), computed locally through Kerykeion; cached facts are reused without a generation quota.
 - `get_moon_phase`: local phase/illumination calculation, without a hosted call.
 - `get_reading`: existing sections, planetary interpretations and metadata;
   explicitly unavailable when no reading exists.
+- `get_birth_chart_interpretation`: the previously generated natal interpretation
+  and its synthesis with the current reading, retrieved from owner-bound memory.
+  This read-only function does not trigger a new paid AI generation.
 
 Functions use Deepgram's client-side dispatch protocol, but execute in myAeon's
 server proxy, not the browser. They are read-only, bounded and do not expose
@@ -44,7 +47,12 @@ User-provided reading text is labeled untrusted data, not instructions.
 
 The existing 3D solar system is heliocentric. Its positions are **not** used as
 geocentric astrological facts. The agent explains that distinction when needed.
-Explicitly confirmed birthplace coordinates and IANA timezone support the hosted Astrologer natal/transit calculation. London is the confirmed-default option; other places require explicit coordinates/timezone. Unknown times and unavailable hosted results remain limited. No natal houses, Ascendant, retrograde flags or natal-to-transit aspects are invented. See [integration setup](./astrologer-integration.md).
+Explicitly confirmed birthplace coordinates and IANA timezone support the local
+Kerykeion natal/transit calculation. London is the confirmed-default option;
+other places require explicit coordinates/timezone. Unknown times remain limited.
+No natal houses, Ascendant, retrograde flags or natal-to-transit aspects are
+invented. Estimated times omit houses and angles. See the
+[core integration plan](./kerykeion-core-plan.md).
 
 ## Transport and Limits
 
@@ -63,16 +71,16 @@ replica. For scaling, move tickets/context to shared storage or add connection
 affinity. Before large public promotion, add user/account-level quotas and
 abuse protection: same-origin checks and global limits are not authentication.
 
-## Astrologer-API Assessment
+## Local Chart Engine
 
-[Astrologer-API](https://github.com/g-battaglia/Astrologer-API) provides natal,
-synastry, transit, composite and return charts through a separate Python service.
-Its repository is AGPL-3.0. It is **not copied, installed or deployed** in this
-change. Integrating it deserves a separate service boundary and license review,
-and verified birthplace coordinates/timezone/unknown-time handling before
-personal natal claims. The new read-only sky/reading tools provide an explicit
-extension point for a future validated `get_natal_chart` tool. Existing
-astronomy-engine supplies the geocentric context without a new service.
+Kerykeion runs as an offline Python worker inside the application container.
+Chart facts and interpretations are temporary, owner-bound server context.
+Zeus receives structured facts and generated text, not SVG markup, credentials
+or screenshots. The server hydrates the most recent saved interpretation on
+opening or refreshing a voice session. Calculation and written interpretation
+remain separate: Zeus can discuss a computed chart without an AI-enhanced reading.
+There is no lifetime tool-call counter. Concurrency, payload, idle and connection
+limits remain transport safeguards rather than chart-generation quotas.
 
 ## Verification
 

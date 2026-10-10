@@ -23,7 +23,22 @@ export function createVoiceAgent(options = {}) {
         data.limitations.push('Confirmed profile or chart context expired. Confirm birth details again for natal facts.');
       }
     }
-    return { ...context, astrology: data, loadTransits: async date => {
+    profileId = profileId || data.profileId;
+    let confirmedBirth;
+    if (owner && profileId && service.resolveProfile) {
+      try {
+        const profile = service.resolveProfile(owner, profileId);
+        if (profile) confirmedBirth = { birthDate: profile.birthDate, recordedLocalTime: profile.timeConfidence === 'unknown' ? null : profile.birthTime, timezone: profile.location.timezone, timeConfidence: profile.timeConfidence, location: profile.location };
+      } catch { /* An expired profile must not be replaced with client birth details. */ }
+    }
+    const savedReading = owner && data.id && service.getInterpretation ? service.getInterpretation(owner, data.id) : null;
+    const parsedReading = savedReading ? contextSchema.shape.reading.safeParse(savedReading) : null;
+    const verifiedReading = parsedReading?.success ? parsedReading.data : null;
+    const reading = context.reading ? {
+      ...context.reading,
+      birthChart: context.reading.birthChart?.contextId === data.id ? verifiedReading?.birthChart : undefined,
+    } : verifiedReading;
+    return { ...context, confirmedBirth, reading, birthChartInterpretation: parsedReading?.success ? parsedReading.data?.birthChart : undefined, astrology: data, loadTransits: async date => {
       const next = await service.prepare(owner, profileId, date, false, signal);
       if (!signal.aborted) {
         const snapshot = next.snapshots[0];
@@ -81,7 +96,7 @@ export function createVoiceAgent(options = {}) {
       res.once('close', closed);
       try { context = await hydrate(context, owner, preparation.signal); } finally { res.off('close', closed); }
       const token = randomBytes(32).toString('hex');
-      tickets.set(token, { context, owner, preparation, version: 0, toolCalls: 0, pendingTools: 0, host: req.headers.host, expires: Date.now() + 30000 });
+      tickets.set(token, { context, owner, preparation, version: 0, pendingTools: 0, host: req.headers.host, expires: Date.now() + 30000 });
       respond(res, 200, { token });
     } catch { respond(res, 400, { error: 'Could not prepare conversation context.' }); }
     return true;
@@ -142,7 +157,6 @@ export function createVoiceAgent(options = {}) {
               let result;
               try {
                 if (ticket.version !== version) result = { error: 'The selected date or profile changed. Request the detail again using the latest context.' };
-                else if (++ticket.toolCalls > 24) result = { error: 'This conversation has reached its tool-call limit. Discuss theory or start a new conversation.' };
                 else result = await runFunction(call.name, call.arguments, ticket.context);
               } catch { result = { error: 'Invalid function arguments or unavailable data. Do not invent a result.' }; }
               if (!cleaned && upstream.readyState === WebSocket.OPEN) upstream.send(JSON.stringify({ type: 'FunctionCallResponse', id: call.id, name: call.name, content: JSON.stringify(ticket.version === version ? result : { error: 'Context changed during this request. Retrieve facts again using the latest context.' }) }));

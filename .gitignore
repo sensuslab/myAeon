@@ -5,3 +5,6 @@ node_modules/
 *.tsbuildinfo
 
 .astrology-quota/
+.venv/
+__pycache__/
+*.pyc

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppHeader from "@/components/ui/AppHeader";
 import ControlPanel, { type BirthInput } from "@/components/ui/ControlPanel";
 import { initialBirthInput, londonToday, birthProfile, profileFingerprint } from "@/components/ui/BirthDetailsForm";
@@ -15,7 +15,10 @@ import QuickTour from "@/components/ui/QuickTour";
 import MobileBottomActions from "@/components/ui/MobileBottomActions";
 import MobileReadingDrawer from "@/components/ui/MobileReadingDrawer";
 import MobileReadingView from "@/components/ui/MobileReadingView";
-import type { ReadingPayload, ThemeMode } from "@/components/ui/types";
+import SceneViewControls, { type SceneView } from "@/components/ui/SceneViewControls";
+import BirthChartView from "@/components/ui/BirthChartView";
+import { publicMessage, type ChartContext, type ReadingWithChart } from "@/components/ui/chartPresentation";
+import type { ThemeMode } from "@/components/ui/types";
 import { downloadReadingPdf } from "@/components/ui/downloadReadingPdf";
 import { useReadingAudio } from "@/components/ui/useReadingAudio";
 import {
@@ -59,7 +62,22 @@ export default function Home() {
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
   const [usage, setUsage] = useState<AstrologyUsage | null>(null);
   const [enrichmentEnabled, setEnrichmentEnabled] = useState(false);
+  const [view, setView] = useState<SceneView>("solar");
+  const [chart, setChart] = useState<{ key: string; context: ChartContext } | null>(null);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+  const [enhancingChart, setEnhancingChart] = useState(false);
+  const [enhancementError, setEnhancementError] = useState<string | null>(null);
   const fingerprint = profileFingerprint(birthInput);
+  const inputKey = `${fingerprint}|${birthInput.readingDate}`;
+  const currentKey = useRef(inputKey);
+  currentKey.current = inputKey;
+  const latestInput = useRef(birthInput);
+  latestInput.current = birthInput;
+  const chartRequest = useRef<AbortController | null>(null);
+  const readingRequest = useRef<AbortController | null>(null);
+  const enhanceRequest = useRef<AbortController | null>(null);
+  const currentChart = chart?.key === inputKey ? chart.context : null;
   const profileId = confirmedProfile?.fingerprint === fingerprint ? confirmedProfile.id : undefined;
   const refreshUsage = useCallback(async () => {
     try {
@@ -70,23 +88,27 @@ export default function Home() {
   }, []);
   useEffect(() => { void refreshUsage(); }, [refreshUsage]);
   const confirmProfile = useCallback(async (input: BirthInput) => {
+    if (!input.confirmed) throw new Error('Confirm permission to use these birth details first.');
+    if (confirmedProfile?.fingerprint === profileFingerprint(input)) return confirmedProfile.id;
     const response = await fetch('/api/astrology/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(birthProfile(input)) });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Could not confirm birth details.');
-    setConfirmedProfile({ id: data.profileId, fingerprint: profileFingerprint(input) });
-    setProfileStatus('Birth details confirmed for Zeus. Chart calculations start when needed.');
+    if (!response.ok || typeof data.profileId !== 'string') throw new Error(publicMessage(data.error, 'Could not confirm birth details. Please try again.'));
+    if (profileFingerprint(latestInput.current) === profileFingerprint(input)) {
+      setConfirmedProfile({ id: data.profileId, fingerprint: profileFingerprint(input) });
+      setProfileStatus('Birth details confirmed. Your chart is calculated when requested.');
+    }
     return data.profileId as string;
-  }, []);
+  }, [confirmedProfile]);
   const handleConfirm = useCallback(async (input: BirthInput) => {
     setConfirming(true); setProfileStatus(null);
-    try { await confirmProfile(input); } catch (err) { setProfileStatus(err instanceof Error ? err.message : 'Could not confirm details.'); }
+    try { await confirmProfile(input); } catch (err) { setProfileStatus(publicMessage(err, 'Could not confirm birth details. Please try again.')); }
     finally { setConfirming(false); }
   }, [confirmProfile]);
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sign, setSign] = useState<ZodiacSign | null>(null);
-  const [reading, setReading] = useState<ReadingPayload | null>(null);
+  const [reading, setReading] = useState<ReadingWithChart | null>(null);
   const audio = useReadingAudio(reading);
   const [hoveredPlanet, setHoveredPlanet] = useState<PlanetVisual | null>(null);
   const [selectedPlanet, setSelectedPlanet] = useState<PlanetVisual | null>(null);
@@ -110,16 +132,63 @@ export default function Home() {
   }, []);
   const closeTour = useCallback(() => {
     setTourOpen(false);
-    try { window.localStorage.setItem("aeon-walkthrough-astrologer-v2", "seen"); } catch {}
+    try { window.localStorage.setItem("aeon-walkthrough-chart-v3", "seen"); } catch {}
   }, []);
   useEffect(() => {
     if (!appReady) return;
     try {
-      if (!window.localStorage.getItem("aeon-walkthrough-astrologer-v2")) setTourOpen(true);
+      if (!window.localStorage.getItem("aeon-walkthrough-chart-v3")) setTourOpen(true);
     } catch { setTourOpen(true); }
   }, [appReady]);
   const skyDate = birthInput.readingDate;
-  const changeBirthInput = useCallback((input: BirthInput) => { setBirthInput(input); setProfileStatus(null); }, []);
+  const changeBirthInput = useCallback((input: BirthInput) => {
+    const nextKey = `${profileFingerprint(input)}|${input.readingDate}`;
+    if (nextKey !== currentKey.current) {
+      currentKey.current = nextKey;
+      chartRequest.current?.abort(); readingRequest.current?.abort(); enhanceRequest.current?.abort(); enhanceRequest.current = null;
+      setChart(null); setChartError(null); setChartLoading(false);
+      setEnhancingChart(false); setEnhancementError(null);
+      setReading(null); setLoading(false); setError(null);
+    }
+    latestInput.current = input;
+    setBirthInput(input); setProfileStatus(null);
+  }, []);
+
+  useEffect(() => () => {
+    chartRequest.current?.abort(); readingRequest.current?.abort(); enhanceRequest.current?.abort();
+  }, []);
+
+  const fetchChart = useCallback(async (input: BirthInput, confirmedId: string) => {
+    const key = `${profileFingerprint(input)}|${input.readingDate}`;
+    if (currentKey.current !== key || chart?.key === key) return;
+    chartRequest.current?.abort();
+    const controller = new AbortController();
+    chartRequest.current = controller;
+    setChartLoading(true); setChartError(null);
+    try {
+      const response = await fetch('/api/astrology/chart', {
+        method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId: confirmedId, readingDate: input.readingDate }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.context?.id) throw new Error(publicMessage(data.error, 'Could not calculate your chart. Your reading remains available.'));
+      if (!controller.signal.aborted && currentKey.current === key) setChart({ key, context: data.context as ChartContext });
+    } catch (err) {
+      if (!controller.signal.aborted && currentKey.current === key) setChartError(publicMessage(err, 'Could not calculate your chart. Your reading remains available.'));
+    } finally {
+      if (chartRequest.current === controller && currentKey.current === key) setChartLoading(false);
+    }
+  }, [chart]);
+
+  const calculateChart = useCallback(async () => {
+    const input = latestInput.current;
+    setChartError(null); setChartLoading(true);
+    try {
+      const id = await confirmProfile(input);
+      await fetchChart(input, id);
+    } catch (err) { if (latestInput.current === input) setChartError(publicMessage(err, 'Could not calculate your chart. Please try again.')); }
+    finally { if (latestInput.current === input) setChartLoading(false); }
+  }, [confirmProfile, fetchChart]);
 
   // Compute the displayed sky for the selected reading date.
   const snapshot: CosmicSnapshot = useMemo(() => {
@@ -174,33 +243,67 @@ export default function Home() {
   }, [theme, themeReady]);
 
   const fetchReading = useCallback(async (input: BirthInput, s: ZodiacSign) => {
+    readingRequest.current?.abort(); enhanceRequest.current?.abort(); enhanceRequest.current = null;
+    const controller = new AbortController();
+    readingRequest.current = controller;
+    const key = `${profileFingerprint(input)}|${input.readingDate}`;
+    setEnhancingChart(false); setEnhancementError(null);
     setSign(s);
     setError(null);
     setReading(null);
     setLoading(true);
 
     try {
-      const confirmedId = input.confirmed ? await confirmProfile(input) : undefined;
+      const confirmedId = await confirmProfile(input);
+      if (controller.signal.aborted || currentKey.current !== key) return;
+      // Both requests begin after confirmation; neither awaits the other's result.
+      void fetchChart(input, confirmedId);
       const res = await fetch("/api/reading", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...input, birthTime: input.timeConfidence === "unknown" ? undefined : input.birthTime, birthPlace: `${input.location.city}, ${input.location.nation}`, profileId: confirmedId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
-      setReading(data as ReadingPayload);
+      if (!res.ok) throw new Error(publicMessage(data?.error, 'Could not cast your reading. Please try again.'));
+      if (controller.signal.aborted || currentKey.current !== key) return;
+      setReading(data as ReadingWithChart);
       if (data.meta?.astrology?.usage) setUsage(data.meta.astrology.usage);
       if (isMobile) {
         setMobileDrawerOpen(false);
         setMobileReadingOpen(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      if (!controller.signal.aborted && currentKey.current === key) setError(publicMessage(err, "Could not cast your reading. Please try again."));
     } finally {
-      setLoading(false);
+      if (readingRequest.current === controller && currentKey.current === key) setLoading(false);
       void refreshUsage();
     }
-  }, [isMobile, confirmProfile, refreshUsage]);
+  }, [isMobile, confirmProfile, fetchChart, refreshUsage]);
+
+  const enhanceChart = useCallback(async () => {
+    if (!currentChart?.natal || birthInput.timeConfidence === 'unknown' || reading?.birthChart || loading || enhanceRequest.current) return;
+    const controller = new AbortController();
+    enhanceRequest.current = controller;
+    const key = inputKey;
+    setEnhancingChart(true); setEnhancementError(null);
+    try {
+      const response = await fetch('/api/reading/enhance', {
+        method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contextId: currentChart.id, ...(reading ? { reading } : {}) }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.birthChart) throw new Error(publicMessage(data.error, 'Could not interpret your chart. Your existing reading is unchanged.'));
+      if (controller.signal.aborted || currentKey.current !== key) return;
+      // Replacing the payload triggers the existing audio hook's invalidation.
+      setReading(data as ReadingWithChart);
+      if (isMobile) setMobileReadingOpen(true);
+    } catch (err) {
+      if (!controller.signal.aborted && currentKey.current === key) setEnhancementError(publicMessage(err, 'Could not interpret your chart. Your existing reading is unchanged.'));
+    } finally {
+      if (enhanceRequest.current === controller) { enhanceRequest.current = null; if (currentKey.current === key) setEnhancingChart(false); }
+    }
+  }, [currentChart, birthInput.timeConfidence, reading, loading, inputKey, isMobile]);
 
   const handlePlanetClick = useCallback((p: PlanetVisual) => {
     setSelectedPlanet(p);
@@ -221,13 +324,13 @@ export default function Home() {
     setPdfLoading(true);
     setError(null);
     try {
-      await downloadReadingPdf(reading);
+      await downloadReadingPdf(reading, currentChart?.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create PDF");
+      setError(publicMessage(err, "Could not create PDF. Please try again."));
     } finally {
       setPdfLoading(false);
     }
-  }, [reading]);
+  }, [reading, currentChart]);
 
   const tooltipSign = hoveredPlanet ? signsById[hoveredPlanet.id]?.name ?? null : null;
   const selectedPlanetPosition = selectedPlanet
@@ -243,7 +346,7 @@ export default function Home() {
       data-theme={theme}
       className="relative h-[100svh] w-full overflow-hidden bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300"
     >
-      {!(isMobile && mobileReadingOpen) && (
+      {view === "solar" && !(isMobile && mobileReadingOpen) && (
         <SceneCanvas
           snapshot={snapshot}
           onPlanetHover={setHoveredPlanet}
@@ -262,6 +365,15 @@ export default function Home() {
         onToggleTheme={toggleTheme}
         onOpenTour={openTour}
       />
+
+      <SceneViewControls view={view} onChange={next => { setView(next); setHoveredPlanet(null); setMobileReadingOpen(false); }} />
+      {view === "chart" && <BirthChartView
+        key={inputKey} context={currentChart} theme={theme} loading={chartLoading} error={chartError}
+        timeConfidence={birthInput.timeConfidence} confirmed={Boolean(profileId)} hasReading={Boolean(reading)}
+        enhanced={Boolean(reading?.birthChart)} onCalculate={() => void calculateChart()}
+        onEditDetails={() => { if (isMobile) setMobileDrawerOpen(true); else document.querySelector<HTMLInputElement>('input[type="date"]')?.focus(); }}
+        onEnhanceChart={loading ? undefined : () => void enhanceChart()} enhancingChart={enhancingChart} enhancementError={enhancementError}
+      />}
 
       <div className="hidden md:block">
         <ControlPanel
@@ -289,11 +401,13 @@ export default function Home() {
           selectedPlanetDegree={selectedPlanetDegree}
           onDownloadPdf={handleDownloadPdf}
           onClearSelectedPlanet={() => setSelectedPlanet(null)}
+          onEnhanceChart={() => void enhanceChart()} chartAvailable={Boolean(currentChart?.natal && birthInput.timeConfidence !== 'unknown')}
+          chartLoading={chartLoading} enhancingChart={enhancingChart} enhancementError={enhancementError} chartConfidence={birthInput.timeConfidence}
         />
       </div>
 
       <div className="hidden md:block">
-        <PlanetInfoBar snapshot={snapshot} signsById={signsById} label={skyDateLabel} />
+        {view === "solar" && <PlanetInfoBar snapshot={snapshot} signsById={signsById} label={skyDateLabel} />}
       </div>
 
       <MobileBottomActions
@@ -344,6 +458,8 @@ export default function Home() {
         }}
         onDownloadPdf={handleDownloadPdf}
         onClearSelectedPlanet={() => setSelectedPlanet(null)}
+        onEnhanceChart={() => void enhanceChart()} chartAvailable={Boolean(currentChart?.natal && birthInput.timeConfidence !== 'unknown')}
+        chartLoading={chartLoading} enhancingChart={enhancingChart} enhancementError={enhancementError} chartConfidence={birthInput.timeConfidence}
       />
 
       <PlanetTooltip planet={hoveredPlanet} sign={tooltipSign} />
@@ -355,7 +471,7 @@ export default function Home() {
 
       <AeonPreloader ready={sceneReady} theme={theme} onComplete={handlePreloaderComplete} />
       <QuickTour open={tourOpen} onClose={closeTour} />
-      <VoiceExplorer profileId={profileId} contextId={reading?.meta?.astrology?.contextId} onUsageRefresh={refreshUsage} open={voiceOpen} onOpen={() => setVoiceOpen(true)} onClose={() => setVoiceOpen(false)} reading={reading} viewedDate={skyDate} selectedPlanet={selectedPlanet?.id ?? null} onStart={() => { audio.stream.stop(); audio.pause(); }} />
+      <VoiceExplorer profileId={profileId} contextId={currentChart?.id ?? reading?.birthChart?.contextId} onUsageRefresh={refreshUsage} open={voiceOpen} onOpen={() => setVoiceOpen(true)} onClose={() => setVoiceOpen(false)} reading={reading} viewedDate={skyDate} selectedPlanet={selectedPlanet?.id ?? null} onStart={() => { audio.stream.stop(); audio.pause(); }} />
     </main>
   );
 }

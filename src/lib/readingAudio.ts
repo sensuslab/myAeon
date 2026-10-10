@@ -6,7 +6,8 @@ Write a separate audioScript string in the SAME JSON response. This is a complet
 standalone spoken adaptation of this reading, not a summary or instructions to a narrator.
 Cover the greeting and sky overview, all four domains within each timeframe in order
 (today, the next three days, the coming week, the coming month), the eight planet
-insights with their reflections, and the closing affirmation. Preserve the written
+insights with their reflections, any explicit birthChart overview, sections, synthesis
+and reflection, and the closing affirmation. Preserve the written
 reading's meaning and practical advice; do not add facts, predictions, natal details,
 or new claims. Keep the same symbolic, non-deterministic framing.
 Aim for 900 to 1200 words, and stay below 20000 characters. Use calm, warm, natural
@@ -49,8 +50,10 @@ export function resolveAudioScript(raw: unknown, reading: {
   greeting: string; summary: string; affirmation: string;
   sections: Array<{ timeframe: string; title: string; body: string }>;
   planetInsights: Array<{ title: string; body: string; reflection: string }>;
+  birthChart?: { title: string; overview: string; sections: Array<{ title: string; body: string }>; synthesis: string; reflection: string };
 }): string {
-  if (typeof raw === "string") {
+  // Rebuild enhanced speech from the written payload so an omitted chart is never signed.
+  if (!reading.birthChart && typeof raw === "string") {
     const cleaned = cleanSpeechText(raw);
     if (cleaned.length >= 80 && cleaned.length <= MAX_AUDIO_SCRIPT_CHARS) return cleaned;
   }
@@ -70,10 +73,30 @@ export function resolveAudioScript(raw: unknown, reading: {
   for (const insight of reading.planetInsights) {
     paragraphs.push(`${insight.title}. ${insight.body} ${insight.reflection}`);
   }
+  if (reading.birthChart) {
+    const chart = reading.birthChart;
+    paragraphs.push(`Now, ${chart.title.toLowerCase()}. ${chart.overview}`);
+    for (const section of chart.sections) paragraphs.push(`${section.title}. ${section.body}`);
+    paragraphs.push(`Bringing these reflections together. ${chart.synthesis}`);
+    paragraphs.push(`Your birth chart reflection. ${chart.reflection}`);
+  }
   paragraphs.push(`To close, your affirmation. ${reading.affirmation}`);
   // Never truncate in the middle of a spoken sentence.
   const cleaned = cleanSpeechText(paragraphs.join("\n\n"));
   if (cleaned.length <= MAX_AUDIO_SCRIPT_CHARS) return cleaned;
+  if (reading.birthChart) {
+    // Allocate across every topic, including the chart, instead of dropping the tail.
+    const budget = Math.floor((MAX_AUDIO_SCRIPT_CHARS - paragraphs.length * 3) / paragraphs.length);
+    return paragraphs.map(paragraph => {
+      const text = cleanSpeechText(paragraph);
+      if (text.length <= budget) return text;
+      const prefix = text.slice(0, budget - 1);
+      const sentenceEnd = Math.max(prefix.lastIndexOf("."), prefix.lastIndexOf("?"), prefix.lastIndexOf("!"));
+      if (sentenceEnd > budget / 2) return prefix.slice(0, sentenceEnd + 1);
+      const wordEnd = prefix.lastIndexOf(" ");
+      return `${prefix.slice(0, wordEnd > 0 ? wordEnd : prefix.length)}.`;
+    }).join("\n\n");
+  }
   const prefix = cleaned.slice(0, MAX_AUDIO_SCRIPT_CHARS - 300);
   return `${prefix.slice(0, prefix.lastIndexOf(".") + 1)}\n\n${cleanSpeechText(reading.affirmation)}`;
 }

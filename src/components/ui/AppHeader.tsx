@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { CircleHelp } from "lucide-react";
+import { CircleHelp, ShieldCheck } from "lucide-react";
 import type { ThemeMode } from "./types";
 
 type Props = {
@@ -24,7 +25,6 @@ export default function AppHeader({ sunSign, currentTime, theme, onToggleTheme, 
       className="fixed top-0 left-0 right-0 z-30 flex items-start justify-between gap-3 px-4 py-3 md:items-center md:px-8 md:py-4 pointer-events-none"
     >
       <div className="flex items-center gap-3 pointer-events-auto">
-        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-astral-gold to-astral-bronze shadow-lg shadow-astral-gold/30 md:h-9 md:w-9" />
         <div>
           <div className="hidden text-[10px] uppercase tracking-[0.4em] text-astral-cyan/70 sm:block">
             Cosmic Astrological Guide
@@ -42,6 +42,7 @@ export default function AppHeader({ sunSign, currentTime, theme, onToggleTheme, 
       </div>
 
       <div className="flex items-center gap-2 pointer-events-auto md:gap-5">
+        <Link href="/privacy" title="Privacy policy" aria-label="Privacy policy" className="grid h-11 w-11 place-items-center rounded-lg glass text-astral-gold"><ShieldCheck size={18} /></Link>
         <button type="button" onClick={onOpenTour} aria-label="Quick tour" title="Quick tour" className="grid h-11 w-11 place-items-center rounded-lg glass text-astral-gold"><CircleHelp size={18} /></button>
         <div className="hidden md:flex items-center gap-6 text-xs text-white/50">
           {currentTime && (
@@ -53,9 +54,6 @@ export default function AppHeader({ sunSign, currentTime, theme, onToggleTheme, 
               <span className="text-white/80">{sunSign.name}</span>
             </div>
           )}
-          <span className="text-[10px] uppercase tracking-widest text-white/30">
-            Drag · Zoom · Click planets
-          </span>
         </div>
 
         <button
