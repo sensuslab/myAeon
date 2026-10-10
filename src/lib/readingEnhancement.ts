@@ -111,8 +111,8 @@ export const ENHANCEMENT_RESPONSE_SCHEMA = responseObject({
   affirmation: responseText,
   birthChart: responseObject({
     contextId: { type: "string", pattern: "^[a-f0-9]{48}$" }, title: responseText, overview: responseText,
-    sections: responseObject(Object.fromEntries(RESPONSE_CHART_TOPICS.map(title => [title, responseText]))),
     synthesis: responseText, reflection: responseText,
+    sections: responseObject(Object.fromEntries(RESPONSE_CHART_TOPICS.map(title => [title, responseText]))),
   }),
 });
 
@@ -122,7 +122,7 @@ RESPONSE CONTRACT:
 Return exactly one emit_chart_reading function call, following the supplied schema. Include a short greeting, summary, sections, planetInsights, affirmation and birthChart. No extra properties, description fields, Markdown fences or text outside the call. Never quote or stringify an array or object.
 sections is an OBJECT with four required keys: Today, 3 Days, Week, Month. Each maps to an OBJECT with exactly four domain keys: Love & Connection, Purpose & Work, Body & Energy, Inner World. Each domain value is its body STRING with 2-3 concise sentences: situational, interpretive, actionable. No arrays, title fields or timeframe fields inside sections.
 planetInsights is an OBJECT keyed by mercury, venus, earth, mars, jupiter, saturn, uranus, neptune. Each value has title, body and reflection strings. Use supplied geocentric sky positions; Earth is a grounding reflection, not a geocentric placement. No arrays or id fields.
-birthChart contains the supplied contextId, title, overview, sections, synthesis and reflection. Include all six fields. Its sections is an OBJECT with three keys: Core Pattern, Relationships and Direction, Meeting the Current Sky, each mapping to its body STRING. Overview and synthesis each stay below 1200 characters, each body below 1500 characters, and reflection below 400 characters. Do not omit synthesis or reflection after writing the sections. The greeting is a simple welcome, not a claim about houses or rising signs; summary stays below 400 characters. The affirmation distils the dominant theme.
+birthChart contains the supplied contextId, title, overview, synthesis, reflection, then sections, in that order. Include all six fields. Write synthesis and reflection BEFORE opening sections; they are direct birthChart properties, never entries inside sections. Its sections is an OBJECT with three keys: Core Pattern, Relationships and Direction, Meeting the Current Sky, each mapping to its body STRING. Overview and synthesis each stay below 1200 characters, each body below 1500 characters, and reflection below 400 characters. The greeting is a simple welcome, not a claim about houses or rising signs; summary stays below 400 characters. The affirmation distils the dominant theme.
 Do not return audioScript: the server creates complete narration from the accepted reading and every chart section.
 
 INTERPRETATION FRAMEWORK:
@@ -187,6 +187,9 @@ export function normalizeEnhancementOutput(raw: unknown) {
     planetInsights: insights ? PLANETS.map(planet => ({ ...object(insights[planet.id]), id: planet.id })) : result.planetInsights,
     birthChart: chart ? {
       ...chart,
+      // Accept already-generated prose misplaced by a closing-brace error, not a substitute.
+      synthesis: chart.synthesis ?? chartSections?.synthesis ?? result.synthesis,
+      reflection: chart.reflection ?? chartSections?.reflection ?? result.reflection,
       sections: chartSections ? RESPONSE_CHART_TOPICS.map(title => ({ title, body: chartSections[title] })) : chart.sections,
     } : result.birthChart,
   };

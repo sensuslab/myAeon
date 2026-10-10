@@ -62,6 +62,9 @@ timeframe/domain, planet and chart-topic object keys, which can be enforced with
 unsupported array-size constraints. The server converts them to the established
 public reading arrays and validates all sixteen domain/timeframe pairs, eight
 planet IDs and text bounds. Missing prose is rejected, never manufactured.
+The chart synthesis and reflection precede the nested topics in the internal
+contract. Already-generated strings misplaced at the root or inside the chart
+topic object can be recovered by their exact field names; absent text still fails.
 The established `jsonrepair` parser can recover syntax errors such as an extra
 closing delimiter. It does not supply interpretation prose; all required fields
 and section pairs still have to pass validation. Truncated completions and
