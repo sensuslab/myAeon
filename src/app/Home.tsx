@@ -2,6 +2,7 @@
 
 import BirthDetailsForm from "@/components/ui/BirthDetailsForm";
 import AeonPreloader from "@/components/ui/AeonPreloader";
+import AlphaDisclaimer from "@/components/ui/AlphaDisclaimer";
 import WelcomeScreen from "@/components/ui/WelcomeScreen";
 import Modal from "@/components/ui/Modal";
 import { PLANETS, getSunSign } from "@/lib/zodiac";
@@ -208,10 +209,19 @@ export default function Home({ initialDate }: { initialDate: string }) {
   const [themeReady, setThemeReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [introComplete, setIntroComplete] = useState(false);
+  const [alphaAcknowledged, setAlphaAcknowledged] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [zeusSource, setZeusSource] = useState<ZeusSource>("welcome");
   const [zeusReadingFocus, setZeusReadingFocus] = useState<ZeusReadingFocus | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
+  const acknowledgeAlpha = useCallback(() => {
+    setAlphaAcknowledged(true);
+    let tourSeen = false;
+    try {
+      tourSeen = window.localStorage.getItem("aeon-walkthrough-chart-v3") === "seen";
+    } catch {}
+    setTourOpen(!tourSeen);
+  }, []);
   const openTour = useCallback(() => {
     setVoiceOpen(false);
     setHowItWorksOpen(false);
@@ -581,7 +591,7 @@ export default function Home({ initialDate }: { initialDate: string }) {
     setWorkspace(next);
   };
   const blocked =
-    !introComplete || welcome || detailsOpen || voiceOpen || tourOpen || howItWorksOpen;
+    !introComplete || !alphaAcknowledged || welcome || detailsOpen || voiceOpen || tourOpen || howItWorksOpen;
   return (
     <main
       data-theme={theme}
@@ -873,7 +883,8 @@ export default function Home({ initialDate }: { initialDate: string }) {
         <PlanetTooltip planet={hoveredPlanet} sign={tooltipSign} />
       </div>
       <AeonPreloader ready={themeReady} onComplete={() => setIntroComplete(true)} />
-      {welcome && introComplete && (
+      {introComplete && !alphaAcknowledged && <AlphaDisclaimer onContinue={acknowledgeAlpha} />}
+      {welcome && introComplete && alphaAcknowledged && (
         <WelcomeScreen
           theme={theme}
           onToggleTheme={toggleTheme}
@@ -914,7 +925,7 @@ export default function Home({ initialDate }: { initialDate: string }) {
         open={howItWorksOpen}
         onClose={() => setHowItWorksOpen(false)}
       />
-      <QuickTour open={tourOpen} onClose={closeTour} />
+      <QuickTour open={introComplete && alphaAcknowledged && tourOpen} onClose={closeTour} />
       <VoiceExplorer
         source={zeusSource}
         readingFocus={zeusReadingFocus}

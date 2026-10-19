@@ -6,7 +6,8 @@ import { AudioLines, BookOpen, CalendarDays, Orbit, X } from "lucide-react";
 import Link from "next/link";
 
 const steps = [
-  { title: "Begin with today", icon: BookOpen, body: "Choose Today for a focused daily reflection with quiet music, spoken playback and a PDF. Full reading explores four dated horizons. Enter and confirm birth details when you are ready; a known local birth time unlocks houses and angles." },
+  { title: "Begin with today", icon: BookOpen, body: "Choose Today for a focused daily reflection with quiet music, spoken playback and a PDF. Full reading explores four dated horizons." },
+  { title: "Make it personal", icon: CalendarDays, body: "Enter and confirm your birth date, time and place when you are ready. A known local birth time unlocks houses and angles. If your time is estimated or unknown, your reading will explain what can and cannot be calculated." },
   { title: "Explore at your own pace", icon: Orbit, body: "Explore, Birth chart and Reading each have their own workspace. Unlock the solar view to move the camera, select a planet to focus, or reset the composition. The chart has selectable placements, aspects, a crisp flat view and a 3D tilt view. Previewing another sky date keeps your completed reading." },
   { title: "Discover your birth profile", icon: BookOpen, body: "Open Birth profile in the Birth chart workspace. Choose Standard or Deep analysis to explore personality, interests, strengths, communication and more. Each section includes supporting natal facts. Your profile is separate from your reading and has its own downloadable PDF." },
   { title: "Listen, reflect, keep", icon: AudioLines, body: "Every reading plays with quiet ambient music. Listening and downloading reuse the same voice recording; PDF generation begins only when requested. Ask Zeus about the selected sky or chart, by voice or text. Calculated facts and symbolic interpretations remain distinct." },

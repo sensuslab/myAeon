@@ -1151,6 +1151,60 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+.alpha-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--app-text);
+}
+.alpha-notice > img {
+  width: 180px;
+  max-width: 100%;
+  height: auto;
+  align-self: center;
+  margin-bottom: 4px;
+}
+.alpha-notice p { margin: 0; }
+.alpha-notice-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--astral-gold);
+  font-size: 14px;
+  font-weight: 600;
+}
+.alpha-notice-intro { font-size: 20px; line-height: 1.4; }
+.alpha-notice-feedback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  color: var(--astral-cyan);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.alpha-notice-feedback > svg { flex-shrink: 0; }
+.alpha-notice-feedback > span { min-width: 0; overflow-wrap: anywhere; }
+.alpha-notice-feedback span span { display: block; }
+.alpha-notice-continue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  border-radius: 8px;
+  background: #d4a437;
+  color: #15121a;
+  font-weight: 600;
+  padding: 12px 16px;
+}
+.alpha-notice a:focus-visible,
+.alpha-notice button:focus-visible {
+  outline: 2px solid var(--astral-cyan);
+  outline-offset: 4px;
+}
 .reading-mode {
   border: 1px solid #d4a43750;
   border-radius: 14px;

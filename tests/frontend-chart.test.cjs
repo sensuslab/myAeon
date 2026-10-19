@@ -14,7 +14,7 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (module
 };
 
 const load = Module._load;
-const mocked = new Set(['WelcomeScreen', 'Modal', 'AppHeader', 'ControlPanel', 'ReadingPanel', 'PlanetTooltip', 'PlanetInfoBar', 'HowItWorksModal', 'AeonPreloader', 'QuickTour', 'MobileBottomActions', 'MobileReadingDrawer', 'MobileReadingView', 'SceneViewControls', 'BirthChartView']);
+const mocked = new Set(['AlphaDisclaimer', 'WelcomeScreen', 'Modal', 'AppHeader', 'ControlPanel', 'ReadingPanel', 'PlanetTooltip', 'PlanetInfoBar', 'HowItWorksModal', 'AeonPreloader', 'QuickTour', 'MobileBottomActions', 'MobileReadingDrawer', 'MobileReadingView', 'SceneViewControls', 'BirthChartView']);
 const audioInputs = [];
 const audio = { stream: { stop() {} }, pause() {} };
 Module._load = function(request, parent, isMain) {
@@ -41,8 +41,9 @@ const context = { id: 'c'.repeat(48), profileId: 'p'.repeat(48), natal: { planet
 const reading = { sunSign: { id: 'taurus', name: 'Taurus', symbol: 'T' }, greeting: 'Hello', summary: 'Baseline', meta: {readingDate:'2026-10-10'}, sections: [], affirmation: 'Reflect' };
 const enhanced = { ...reading, birthChart: { contextId: context.id, title: 'Birth chart', overview: 'Overview', sections: [{ title: 'Pattern', body: 'Calculated pattern' }], synthesis: 'Synthesis', reflection: 'Reflection' } };
 
-function harness() {
-  global.window = { localStorage: { getItem: () => 'seen', setItem() {} }, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) };
+function harness({ startupOnly = false, tourSeen = true } = {}) {
+  const storageWrites = [];
+  global.window = { localStorage: { getItem: () => tourSeen ? 'seen' : null, setItem: (...args) => storageWrites.push(args) }, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) };
   global.document = { documentElement: { dataset: {}, style: { setProperty() {} } }, body: { dataset: {} }, querySelector: () => null };
   const requests = [];
   global.fetch = (url, options) => {
@@ -54,7 +55,9 @@ function harness() {
   };
   let tree;
   act(() => { tree = create(React.createElement(Home, { initialDate:'2026-10-10' })); });
+  if (startupOnly) return { tree, storageWrites, close: () => act(() => tree.unmount()) };
   act(() => tree.root.findByType('mock-AeonPreloader').props.onComplete());
+  act(() => tree.root.findByType('mock-AlphaDisclaimer').props.onContinue());
   const nav = label => act(() => tree.root.findAllByType('nav')[0].findAllByType('button').find(b => b.children.includes(label)).props.onClick());
   const props = name => {
     if(name === 'ControlPanel') { name='BirthDetailsForm'; if(!tree.root.findAllByType('mock-BirthDetailsForm').length) act(()=>tree.root.findAllByType('button').find(b=>b.children.includes('Birth details ')).props.onClick()); }
@@ -75,6 +78,34 @@ function harness() {
   const close = () => act(() => tree.unmount());
   return { tree, props, requests, input, submit, resolve, close };
 }
+
+test('startup shows the Alpha notice only after the wordmark and before the first-use tour', () => {
+  const h = harness({ startupOnly: true, tourSeen: false });
+  try {
+    assert.equal(h.tree.root.findAllByType('mock-AlphaDisclaimer').length, 0);
+    assert.equal(h.tree.root.findByType('mock-QuickTour').props.open, false);
+    act(() => h.tree.root.findByType('mock-AeonPreloader').props.onComplete());
+    assert.equal(h.tree.root.findAllByType('mock-AlphaDisclaimer').length, 1);
+    assert.equal(h.tree.root.findAllByType('mock-WelcomeScreen').length, 0);
+    assert.equal(h.tree.root.findByType('mock-QuickTour').props.open, false);
+    act(() => h.tree.root.findByType('mock-AlphaDisclaimer').props.onContinue());
+    assert.equal(h.tree.root.findAllByType('mock-AlphaDisclaimer').length, 0);
+    assert.equal(h.tree.root.findByType('mock-QuickTour').props.open, true);
+    act(() => h.tree.root.findByType('mock-QuickTour').props.onClose());
+    assert.ok(h.storageWrites.some(([key, value]) => key === 'aeon-walkthrough-chart-v3' && value === 'seen'));
+  } finally { h.close(); }
+});
+
+test('returning visitors still see the Alpha notice without repeating the completed tour', () => {
+  const h = harness({ startupOnly: true });
+  try {
+    act(() => h.tree.root.findByType('mock-AeonPreloader').props.onComplete());
+    assert.equal(h.tree.root.findAllByType('mock-AlphaDisclaimer').length, 1);
+    act(() => h.tree.root.findByType('mock-AlphaDisclaimer').props.onContinue());
+    assert.equal(h.tree.root.findByType('mock-QuickTour').props.open, false);
+    assert.equal(h.tree.root.findAllByType('mock-WelcomeScreen').length, 1);
+  } finally { h.close(); }
+});
 
 test('Cast confirms first, starts baseline/chart in parallel, and chart failure preserves the baseline', async () => {
   const h = harness();
